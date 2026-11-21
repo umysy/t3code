@@ -238,6 +238,68 @@ describe("pools", () => {
   };
   const laptop = { entry: { target: { label: "Laptop" } } };
 
+  it("preserves CMA account state and subscription metadata in shared accounts", () => {
+    const cma = {
+      ...source,
+      kind: "cma" as const,
+      id: UsageLimitSourceId.make("cma"),
+      label: "CMA",
+      error: "codex-multi-auth status failed",
+      accounts: [
+        {
+          id: "cma-account",
+          driver: ProviderDriverKind.make("codex"),
+          email: "cma@example.com",
+          plan: "ChatGPT Plus",
+          enabled: false,
+          current: true,
+          subscription: {
+            planDisplayName: "ChatGPT Plus",
+            expiresAt: "2027-01-02T03:04:05.000Z",
+            renewsAt: "2027-01-02T03:04:05.000Z",
+            willRenew: true,
+          },
+          usageLimits: {
+            checkedAt,
+            windows: [{ ...window, usedPercent: 12 }],
+            unavailable: { reason: "probeFailed" as const },
+          },
+        },
+        {
+          id: "cma-account-2",
+          driver: ProviderDriverKind.make("codex"),
+          email: "cma@example.com",
+          enabled: true,
+          usageLimits: { checkedAt, windows: [{ ...window, usedPercent: 24 }] },
+        },
+      ],
+    };
+    const accounts = collectLimitAccounts(
+      new Map([
+        [
+          EnvironmentId.make("env-a"),
+          { ...laptop, serverConfig: { usageLimitSources: [cma] } },
+        ],
+      ]),
+    );
+    expect(accounts).toHaveLength(2);
+    const [account] = accounts;
+    expect(account).toMatchObject({
+      sourceKind: "cma",
+      sourceError: "codex-multi-auth status failed",
+      enabled: false,
+      current: true,
+      subscription: {
+        planDisplayName: "ChatGPT Plus",
+        expiresAt: "2027-01-02T03:04:05.000Z",
+      },
+      limits: {
+        checkedAt,
+        unavailable: { reason: "probeFailed" },
+      },
+    });
+  });
+
   it("merges one account reported natively on two environments and by a hub into one entry", () => {
     const native = provider({
       driver: claude,
@@ -1114,6 +1176,11 @@ describe("pools", () => {
           displayName: "Go",
           email: undefined,
           plan: undefined,
+          enabled: true,
+          current: undefined,
+          subscription: undefined,
+          sourceKind: undefined,
+          sourceError: undefined,
           accentColor: undefined,
           environments: [],
           sourceLabel: null,
@@ -1165,6 +1232,11 @@ describe("pooled account columns", () => {
     displayName: key,
     email: undefined,
     plan: undefined,
+    enabled: true,
+    current: undefined,
+    subscription: undefined,
+    sourceKind: undefined,
+    sourceError: undefined,
     accentColor: undefined,
     environments: [],
     sourceLabel: "Hub",
@@ -1730,6 +1802,46 @@ describe("/usage-limits", () => {
         now,
       ),
     ).toBeNull();
+  });
+
+  it("carries CMA account metadata and disabled accounts into the usage report", () => {
+    const cma = {
+      id: UsageLimitSourceId.make("cma"),
+      kind: "cma" as const,
+      label: "CMA",
+      checkedAt,
+      error: "codex-multi-auth status failed",
+      accounts: [
+        {
+          id: "cma-account",
+          driver: selected.driver,
+          email: "cma@example.com",
+          plan: "ChatGPT Plus",
+          enabled: false,
+          current: true,
+          subscription: {
+            planDisplayName: "ChatGPT Plus",
+            expiresAt: "2027-01-02T03:04:05.000Z",
+          },
+          usageLimits: { checkedAt, windows: [{ ...window, usedPercent: 12 }] },
+        },
+      ],
+    };
+    const report = collectProviderUsageLimits(selected.instanceId, [selected], [cma], now);
+    expect(report?.accounts).toMatchObject([
+      {
+        id: "cma:cma-account",
+        sourceKind: "cma",
+        sourceError: "codex-multi-auth status failed",
+        enabled: false,
+        current: true,
+        subscription: {
+          planDisplayName: "ChatGPT Plus",
+          expiresAt: "2027-01-02T03:04:05.000Z",
+        },
+        limits: { checkedAt, windows: [{ usedPercent: 12 }] },
+      },
+    ]);
   });
 
   it("surfaces source errors only for sources that carry the selected driver", () => {
