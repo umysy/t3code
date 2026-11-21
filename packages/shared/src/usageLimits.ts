@@ -281,6 +281,11 @@ export interface LimitAccount {
   readonly displayName: string | null;
   readonly email: string | undefined;
   readonly plan: string | undefined;
+  readonly enabled: boolean;
+  readonly current: boolean | undefined;
+  readonly subscription: UsageLimitSourceAccount["subscription"];
+  readonly sourceKind: UsageLimitSourceSnapshot["kind"] | undefined;
+  readonly sourceError: string | undefined;
   readonly accentColor: string | undefined;
   readonly environments: ReadonlyArray<{
     readonly environmentId: EnvironmentId;
@@ -353,6 +358,11 @@ export function collectLimitAccounts(presentations: LimitPresentations): readonl
           ? null
           : displayName,
       plan: planSources.get(key)?.plan ?? previous.plan ?? next.plan,
+      enabled: winner.enabled,
+      current: winner.current ?? previous.current ?? next.current,
+      subscription: winner.subscription ?? previous.subscription ?? next.subscription,
+      sourceKind: winner.sourceKind ?? previous.sourceKind ?? next.sourceKind,
+      sourceError: winner.sourceError ?? previous.sourceError ?? next.sourceError,
       accentColor: previous.accentColor ?? next.accentColor,
       environments,
       sourceLabel: environments.length > 0 ? null : (previous.sourceLabel ?? next.sourceLabel),
@@ -385,6 +395,11 @@ export function collectLimitAccounts(presentations: LimitPresentations): readonl
         displayName: provider.displayName?.trim() || null,
         email: provider.auth.email,
         plan: provider.auth.label,
+        enabled: provider.enabled,
+        current: undefined,
+        subscription: undefined,
+        sourceKind: undefined,
+        sourceError: undefined,
         accentColor: provider.accentColor,
         environments: [{ environmentId, label }],
         sourceLabel: null,
@@ -400,8 +415,9 @@ export function collectLimitAccounts(presentations: LimitPresentations): readonl
         ? `${presentation.entry.target.label} · ${source.label}`
         : source.label;
       for (const account of source.accounts) {
-        if (limitsNotice(account.usageLimits) !== null) continue;
-        const resolved = resolveKey(account);
+        if (source.kind !== "cma" && limitsNotice(account.usageLimits) !== null) continue;
+        // CMA's stable account id is the identity even when two managed accounts share an email.
+        const resolved = source.kind === "cma" ? null : resolveKey(account);
         // A resolved account already has an identity; its public key must stay distinct from others'.
         const hub = resolved ? `${environmentId}:${source.id}` : hubIdentity(environmentId, source);
         const key = `${hub}:${account.id}${account.workspaceId ? `:${account.workspaceId}` : ""}`;
@@ -411,6 +427,11 @@ export function collectLimitAccounts(presentations: LimitPresentations): readonl
           displayName: account.email ? null : hubAccountName(account),
           email: account.email,
           plan: account.plan,
+          enabled: account.enabled ?? true,
+          current: account.current,
+          subscription: account.subscription,
+          sourceKind: source.kind,
+          sourceError: source.error,
           accentColor: undefined,
           environments: [],
           sourceLabel,
@@ -918,7 +939,15 @@ export function collectProviderUsageLimits(
     shownHubs.flatMap((source) => source.accounts.filter(routes).map((account) => account.driver)),
   );
   if (drivers.size === 0) drivers.add(selected.driver);
-  if (![...drivers].some((driver) => hasProviderUsageLimits(driver, providers, sources))) {
+  const hasCmaAccount = shownHubs.some(
+    (source) =>
+      source.kind === "cma" &&
+      source.accounts.some((account) => account.driver === selected.driver),
+  );
+  if (
+    !hasCmaAccount &&
+    ![...drivers].some((driver) => hasProviderUsageLimits(driver, providers, sources))
+  ) {
     return null;
   }
   const resolveKey = accountKeyResolver([
@@ -1003,6 +1032,7 @@ export function collectProviderUsageLimits(
       driver: provider.driver,
       label: `${provider.displayName?.trim() || String(provider.driver)} [${provider.instanceId}]`,
       ...(provider.auth.label ? { plan: provider.auth.label } : {}),
+      enabled: provider.enabled,
       instanceId: provider.instanceId,
       resetCreditInput:
         hubCreditId && hubCredits
@@ -1020,14 +1050,22 @@ export function collectProviderUsageLimits(
   }
   for (const source of shownHubs) {
     const matching = source.accounts.filter(routes);
-    for (const account of matching) {
+    const displayAccounts =
+      source.kind === "cma"
+        ? source.accounts.filter((account) => account.driver === selected.driver)
+        : matching;
+    for (const account of displayAccounts) {
       const key = resolveKey(account);
       if (key && nativeAccountKeys.has(key)) continue;
       accounts.push({
         id: `${source.id}:${account.id}`,
         driver: account.driver,
         label: `${source.label} · ${hubAccountName(account)}`,
-        sourceLabel: "CLI Proxy",
+        sourceKind: source.kind,
+        ...(source.error ? { sourceError: source.error } : {}),
+        sourceLabel: source.kind === "cma" ? source.label : "CLI Proxy",
+        enabled: account.enabled ?? true,
+        ...(account.current === undefined ? {} : { current: account.current }),
         ...(account.usageLimits.resetCredits?.nextCreditId
           ? {
               resetCreditInput: {
@@ -1039,6 +1077,7 @@ export function collectProviderUsageLimits(
           : {}),
         ...(account.plan ? { plan: account.plan } : {}),
         ...(account.email ? { email: account.email } : {}),
+        ...(account.subscription ? { subscription: account.subscription } : {}),
         limits: account.usageLimits,
       });
     }
