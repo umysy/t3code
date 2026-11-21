@@ -171,20 +171,34 @@ const quotaWindow = (
 ): CmaUsageWindow | undefined => {
   const value = record[key];
   if (value === null || value === undefined) return undefined;
-  if (!isRecord(value)) throw new Error("invalid quota window");
+  if (!isRecord(value)) {
+    throw new CmaProbeFailure({ command: "status", kind: "invalidJson" });
+  }
   const usedPercent = optionalNumber(value, "usedPercent");
   if (usedPercent === undefined || usedPercent < 0 || usedPercent > 100) {
-    throw new Error("invalid quota utilization");
+    throw new CmaProbeFailure({ command: "status", kind: "invalidJson" });
   }
   const windowMinutes = optionalNumber(value, "windowMinutes");
-  if (windowMinutes !== undefined && windowMinutes < 0) throw new Error("invalid quota duration");
+  if (
+    ("windowMinutes" in value && windowMinutes === undefined) ||
+    (windowMinutes !== undefined && windowMinutes < 0)
+  ) {
+    throw new CmaProbeFailure({ command: "status", kind: "invalidJson" });
+  }
+  const resetAtMs = optionalNumber(value, "resetAtMs");
+  if (
+    ("resetAtMs" in value && resetAtMs === undefined) ||
+    (resetAtMs !== undefined && resetAtMs < 0)
+  ) {
+    throw new CmaProbeFailure({ command: "status", kind: "invalidJson" });
+  }
   return {
     id: key,
     label: key === "primary" ? "7-hour" : "7-day",
     usedPercent,
     ...(windowMinutes !== undefined ? { windowMinutes } : {}),
-    ...(isoFromMillis(optionalNumber(value, "resetAtMs"))
-      ? { resetsAt: isoFromMillis(optionalNumber(value, "resetAtMs")) }
+    ...(isoFromMillis(resetAtMs)
+      ? { resetsAt: isoFromMillis(resetAtMs) }
       : {}),
   };
 };
