@@ -783,7 +783,7 @@ export function hasProviderUsageLimits(
     providersWithLimits(providers).some((provider) => provider.driver === driver) ||
     sources.some(
       (source) =>
-        source.accounts.some((account) => account.driver === driver) ||
+        source.accounts.some((account) => account.enabled !== false && account.driver === driver) ||
         (source.error !== undefined && source.accounts.length === 0),
     )
   );
@@ -813,7 +813,11 @@ export function withUsageLimitsCommands(
 ): ServerProvider[] {
   const supportedDrivers = new Set([
     ...providersWithLimits(providers).map((provider) => provider.driver),
-    ...sources.flatMap((source) => source.accounts.map((account) => account.driver)),
+    ...sources.flatMap((source) =>
+      source.accounts
+        .filter((account) => account.enabled !== false)
+        .map((account) => account.driver),
+    ),
   ]);
   const unreadableSource = sources.some(
     (source) => source.error !== undefined && source.accounts.length === 0,
@@ -880,16 +884,18 @@ export function hubRoutes(
     sources.some((source) => source.accounts.some((account) => account.models?.includes(id ?? "")));
   const slug = lists(base) ? base : full;
   const listed = (account: UsageLimitSourceAccount) =>
-    slug !== undefined && account.models?.includes(slug) === true;
+    account.enabled !== false && slug !== undefined && account.models?.includes(slug) === true;
   const serving = new Set(
     sources.flatMap((source) => source.accounts.filter(listed).map((account) => account.driver)),
   );
   // Model ids such as "opus" are aliases no hub lists, so no listing falls back to the driver.
   if (serving.size === 0)
-    return (account) => account.driver === driver && account.models?.length !== 0;
+    return (account) =>
+      account.enabled !== false && account.driver === driver && account.models?.length !== 0;
   // An account whose model list was unreadable may serve the model too.
   return (account) =>
-    account.models ? listed(account) : serving.has(account.driver) || account.driver === driver;
+    account.enabled !== false &&
+    (account.models ? listed(account) : serving.has(account.driver) || account.driver === driver);
 }
 
 export function collectProviderUsageLimits(

@@ -3,11 +3,12 @@ import {
   UsageLimitSourceError,
   type UsageLimitSourceConsumeResetCreditInput,
   type ProviderConsumeResetCreditResult,
-  type ProviderDriverKind,
+  ProviderDriverKind,
   type ServerSettings,
   UsageLimitSourceConfig,
+  UsageLimitSourceId,
   settingsSecretLiteral,
-  type UsageLimitSourceId,
+  type UsageLimitSourceAccount,
   type UsageLimitSourceSnapshot,
 } from "@t3tools/contracts";
 import { resolveServerBackgroundActivitySettings } from "@t3tools/shared/backgroundActivitySettings";
@@ -30,6 +31,7 @@ import { resolveSettingsSecrets } from "../secrets/settingsSecretValue.ts";
 import * as Settings from "../serverSettings.ts";
 import { windowLimitsModel } from "../provider/claudeUsageLimits.ts";
 import { makeCliproxyApi } from "./cliproxyApi.ts";
+import * as CmaUsageReader from "./cmaUsageReader.ts";
 
 export class UsageLimitSources extends Context.Service<
   UsageLimitSources,
@@ -90,6 +92,40 @@ function keepLastGoodReadings(
   });
 }
 
+const CMA_SOURCE_ID = UsageLimitSourceId.make("cma");
+
+const cmaAccount = (account: CmaUsageReader.CmaUsageAccount): UsageLimitSourceAccount => ({
+  id: account.id,
+  driver: ProviderDriverKind.make("codex"),
+  ...(account.email ? { email: account.email } : {}),
+  ...(account.plan ? { plan: account.plan } : {}),
+  enabled: account.enabled,
+  ...(account.current === undefined ? {} : { current: account.current }),
+  ...(account.subscription ? { subscription: account.subscription } : {}),
+  usageLimits: {
+    checkedAt: account.quota.checkedAt,
+    windows: account.quota.windows.map((window) => ({
+      id: window.id,
+      kind: window.id === "primary" ? "session" : "weekly",
+      label: window.label,
+      usedPercent: window.usedPercent,
+      ...(window.resetsAt ? { resetsAt: window.resetsAt } : {}),
+      ...(window.windowMinutes === undefined ? {} : { windowDurationMins: window.windowMinutes }),
+    })),
+  },
+});
+
+const cmaSnapshot = (
+  checkedAt: string,
+  accounts: ReadonlyArray<CmaUsageReader.CmaUsageAccount>,
+): UsageLimitSourceSnapshot => ({
+  id: CMA_SOURCE_ID,
+  kind: "cma",
+  label: "CMA",
+  checkedAt,
+  accounts: accounts.map(cmaAccount),
+});
+
 function missingManagementKey(config: UsageLimitSourceConfig): string {
   return typeof config.managementKey === "string"
     ? "No management key configured."
@@ -146,6 +182,22 @@ export const make = Effect.gen(function* () {
     return { ...base, accounts: accounts.success };
   });
 
+  const readCmaSource = Effect.fn("UsageLimitSources.readCmaSource")(function* (
+    previous: ReadonlyArray<UsageLimitSourceSnapshot>,
+  ) {
+    const cmaReader = yield* Effect.serviceOption(CmaUsageReader.CmaUsageReader);
+    if (cmaReader._tag === "None") return undefined;
+    const checkedAt = DateTime.formatIso(yield* DateTime.now);
+    const result = yield* cmaReader.value.read.pipe(Effect.result);
+    if (result._tag === "Success") return cmaSnapshot(checkedAt, result.success);
+    const last = previous.find((source) => source.id === CMA_SOURCE_ID);
+    return {
+      ...cmaSnapshot(checkedAt, []),
+      accounts: last?.accounts ?? [],
+      error: result.failure.message,
+    };
+  });
+
   const publish = Effect.fn("UsageLimitSources.publish")(function* (
     next: ReadonlyArray<UsageLimitSourceSnapshot>,
   ) {
@@ -169,7 +221,11 @@ export const make = Effect.gen(function* () {
       ([id, config]) => readSource(id as UsageLimitSourceId, config),
       { concurrency: 4 },
     );
-    yield* publish(keepLastGoodReadings(yield* Ref.get(stateRef), snapshots));
+    const previous = yield* Ref.get(stateRef);
+    const cma = yield* readCmaSource(previous);
+    yield* publish(
+      keepLastGoodReadings(previous, [...snapshots, ...(cma === undefined ? [] : [cma])]),
+    );
   }).pipe(refreshLock.withPermits(1), Effect.ignoreCause({ log: true }));
 
   // Shares the refresh lock so a stale in-flight read cannot overwrite a redemption.
