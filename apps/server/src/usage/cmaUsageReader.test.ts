@@ -126,6 +126,22 @@ describe("CMA usage reader", () => {
     }).pipe(Effect.provide(readerWith(JSON.stringify({ accounts: [] }), "{}"))),
   );
 
+  it("reports malformed quota windows as typed status probe failures", () => {
+    for (const quota of [
+      { primary: "not-an-object" },
+      { primary: { usedPercent: 101 } },
+      { primary: { usedPercent: 10, windowMinutes: -1 } },
+    ]) {
+      expect(() =>
+        CmaUsageReader.normalizeCmaUsage(
+          { accounts: [{ id: "acct-a", quota }] },
+          { accounts: [] },
+          "2026-11-21T00:00:00.000Z",
+        ),
+      ).toThrowErrorMatchingObject({ _tag: "CmaProbeFailure", command: "status", kind: "invalidJson" });
+    }
+  });
+
   it("leaves subscription expiry unknown when CMA omits it", () => {
     const accounts = CmaUsageReader.normalizeCmaUsage(
       {

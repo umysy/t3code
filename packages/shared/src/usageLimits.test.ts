@@ -300,6 +300,71 @@ describe("pools", () => {
     });
   });
 
+  it("clears a stale CMA source error after a newer healthy snapshot", () => {
+    const account = (checkedAt: string) => ({
+      id: "cma-account",
+      driver: ProviderDriverKind.make("codex"),
+      email: "cma@example.com",
+      usageLimits: { checkedAt, windows: [{ ...window, usedPercent: 12 }] },
+    });
+    const source = (checkedAt: string, error: string | undefined) => ({
+      id: UsageLimitSourceId.make("cma"),
+      kind: "cma" as const,
+      label: "CMA",
+      checkedAt,
+      endpoint: "https://cma.example",
+      ...(error === undefined ? {} : { error }),
+      accounts: [account(checkedAt)],
+    });
+    const presentations = (snapshots: readonly ReturnType<typeof source>[]) =>
+      new Map(
+        snapshots.map((snapshot, index) => [
+          EnvironmentId.make(`env-${index}`),
+          { ...laptop, serverConfig: { usageLimitSources: [snapshot] } },
+        ]),
+      );
+
+    const accounts = collectLimitAccounts(
+      presentations([
+        source("2026-09-03T11:00:00.000Z", "codex-multi-auth status failed"),
+        source("2026-09-03T12:00:00.000Z", undefined),
+      ]),
+    );
+    expect(accounts).toHaveLength(1);
+    expect(accounts[0]?.sourceError).toBeUndefined();
+  });
+
+  it("keeps disabled CMA accounts visible but excludes them from quota pools", () => {
+    const cma = {
+      ...source,
+      kind: "cma" as const,
+      id: UsageLimitSourceId.make("cma"),
+      accounts: [
+        {
+          id: "disabled",
+          driver: ProviderDriverKind.make("codex"),
+          enabled: false,
+          usageLimits: { checkedAt, windows: [{ ...window, usedPercent: 10 }] },
+        },
+        {
+          id: "enabled",
+          driver: ProviderDriverKind.make("codex"),
+          enabled: true,
+          usageLimits: { checkedAt, windows: [{ ...window, usedPercent: 20 }] },
+        },
+      ],
+    };
+    const accounts = collectLimitAccounts(
+      new Map([[EnvironmentId.make("env-a"), { ...laptop, serverConfig: { usageLimitSources: [cma] } }]]),
+    );
+    expect(accounts.map((account) => account.id)).toEqual(["env-a:cma:disabled", "env-a:cma:enabled"]);
+    const [pool] = collectLimitPools(accounts, now);
+    expect(pool?.accounts.map((account) => account.id)).toEqual(["env-a:cma:enabled"]);
+    expect(pool?.windows[0]?.members.map((member) => member.account.id)).toEqual([
+      "env-a:cma:enabled",
+    ]);
+  });
+
   it("merges one account reported natively on two environments and by a hub into one entry", () => {
     const native = provider({
       driver: claude,

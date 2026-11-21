@@ -362,7 +362,9 @@ export function collectLimitAccounts(presentations: LimitPresentations): readonl
       current: winner.current ?? previous.current ?? next.current,
       subscription: winner.subscription ?? previous.subscription ?? next.subscription,
       sourceKind: winner.sourceKind ?? previous.sourceKind ?? next.sourceKind,
-      sourceError: winner.sourceError ?? previous.sourceError ?? next.sourceError,
+      sourceError:
+        winner.sourceError ??
+        (winner.sourceKind === "cma" ? undefined : (previous.sourceError ?? next.sourceError)),
       accentColor: previous.accentColor ?? next.accentColor,
       environments,
       sourceLabel: environments.length > 0 ? null : (previous.sourceLabel ?? next.sourceLabel),
@@ -536,6 +538,7 @@ export function collectLimitPools(
 ): readonly LimitPool[] {
   const byDriver = new Map<ServerProvider["driver"], LimitAccount[]>();
   for (const account of accounts) {
+    if (!account.enabled) continue;
     const list = byDriver.get(account.driver);
     if (list) list.push(account);
     else byDriver.set(account.driver, [account]);
