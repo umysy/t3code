@@ -197,9 +197,7 @@ const quotaWindow = (
     label: key === "primary" ? "7-hour" : "7-day",
     usedPercent,
     ...(windowMinutes !== undefined ? { windowMinutes } : {}),
-    ...(isoFromMillis(resetAtMs)
-      ? { resetsAt: isoFromMillis(resetAtMs) }
-      : {}),
+    ...(isoFromMillis(resetAtMs) ? { resetsAt: isoFromMillis(resetAtMs) } : {}),
   };
 };
 

@@ -4,8 +4,8 @@
 
 **Blocked by:** 04: Extend shared Usage aggregation for CMA accounts
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Render every CMA account returned by the server.
-- [ ] Display quota, subscription, observation, and account state fields.
-- [ ] Show stale or unavailable state and use the shared refresh path.
+- [x] Render every CMA account returned by the server.
+- [x] Display quota, subscription, observation, and account state fields.
+- [x] Show stale or unavailable state and use the shared refresh path.

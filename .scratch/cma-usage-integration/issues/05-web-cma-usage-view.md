@@ -4,8 +4,8 @@
 
 **Blocked by:** 04: Extend shared Usage aggregation for CMA accounts
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Render more than two CMA accounts from data-driven account lists.
-- [ ] Display quota, subscription, observation, and account state fields.
-- [ ] Show stale or unavailable state after a failed refresh.
+- [x] Render more than two CMA accounts from data-driven account lists.
+- [x] Display quota, subscription, observation, and account state fields.
+- [x] Show stale or unavailable state after a failed refresh.

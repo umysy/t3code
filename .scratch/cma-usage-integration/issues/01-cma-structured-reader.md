@@ -4,8 +4,8 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Read any number of accounts from structured CMA output.
-- [ ] Map quota windows and subscription fields without inferring subscription expiry.
-- [ ] Normalize probe failures without returning sensitive raw output.
+- [x] Read any number of accounts from structured CMA output.
+- [x] Map quota windows and subscription fields without inferring subscription expiry.
+- [x] Normalize probe failures without returning sensitive raw output.

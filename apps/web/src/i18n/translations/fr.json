@@ -12389,5 +12389,22 @@
   "27d76249d09eb69f": "Guide de revue prêt",
   "faa3bb26abb39c93": "Échec du guide de revue",
   "b7df38b7d8792d78": "Ouvrir le guide",
-  "9e91e9a77b664e4e": "Impossible de démarrer un guide de revue"
+  "9e91e9a77b664e4e": "Impossible de démarrer un guide de revue",
+  "255624ca3232b204": "Yes",
+  "d2a4c751fe055ac5": "No",
+  "06d9f2f933698edc": "Stale",
+  "3ecb765ba094e7fc": "Current",
+  "d9480b3fffdf0c36": "Not current",
+  "3d1b8273aa4cf175": "Observed",
+  "8bf46ca10ec87ec4": " · resets {time}",
+  "f2892fa01877f9df": "Subscription status",
+  "370aa80e162adbf6": "Active",
+  "8e589c76d9bd6f9a": "Inactive",
+  "5c9ddaf5489b93d5": "Subscription expiry",
+  "1f251bff72aa4505": "Renewal time",
+  "13fe91dda8d8de6e": "Renewal status",
+  "22b6f03c84962817": "Renews",
+  "70eaf11f180bebb7": "Does not renew",
+  "c9114ed62cca0297": "Billing period",
+  "2f14651a9be2629c": "CMA accounts"
 }

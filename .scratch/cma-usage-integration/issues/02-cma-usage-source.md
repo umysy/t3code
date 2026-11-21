@@ -4,8 +4,8 @@
 
 **Blocked by:** 01: Establish the CMA structured reader
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Publish normalized CMA snapshots through the existing environment Usage data flow.
-- [ ] Keep disabled accounts visible and inactive for routing and refresh.
-- [ ] Preserve existing Cliproxy source behavior and safe last-good readings.
+- [x] Publish normalized CMA snapshots through the existing environment Usage data flow.
+- [x] Keep disabled accounts visible and inactive for routing and refresh.
+- [x] Preserve existing Cliproxy source behavior and safe last-good readings.

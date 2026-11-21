@@ -28,6 +28,7 @@ import {
 import { collectLimitNotices } from "./usageLimitsCopy.ts";
 
 const now = Date.parse("2026-09-03T12:00:00.000Z");
+const checkedAt = "2026-09-03T11:00:00.000Z";
 
 const window = {
   id: "five_hour",
@@ -276,10 +277,7 @@ describe("pools", () => {
     };
     const accounts = collectLimitAccounts(
       new Map([
-        [
-          EnvironmentId.make("env-a"),
-          { ...laptop, serverConfig: { usageLimitSources: [cma] } },
-        ],
+        [EnvironmentId.make("env-a"), { ...laptop, serverConfig: { usageLimitSources: [cma] } }],
       ]),
     );
     expect(accounts).toHaveLength(2);
@@ -355,12 +353,17 @@ describe("pools", () => {
       ],
     };
     const accounts = collectLimitAccounts(
-      new Map([[EnvironmentId.make("env-a"), { ...laptop, serverConfig: { usageLimitSources: [cma] } }]]),
+      new Map([
+        [EnvironmentId.make("env-a"), { ...laptop, serverConfig: { usageLimitSources: [cma] } }],
+      ]),
     );
-    expect(accounts.map((account) => account.id)).toEqual(["env-a:cma:disabled", "env-a:cma:enabled"]);
+    expect(accounts.map((account) => account.key)).toEqual([
+      "env-a:cma:disabled",
+      "env-a:cma:enabled",
+    ]);
     const [pool] = collectLimitPools(accounts, now);
-    expect(pool?.accounts.map((account) => account.id)).toEqual(["env-a:cma:enabled"]);
-    expect(pool?.windows[0]?.members.map((member) => member.account.id)).toEqual([
+    expect(pool?.accounts.map((account) => account.key)).toEqual(["env-a:cma:enabled"]);
+    expect(pool?.windows[0]?.members.map((member) => member.account.key)).toEqual([
       "env-a:cma:enabled",
     ]);
   });
@@ -1893,20 +1896,19 @@ describe("/usage-limits", () => {
       ],
     };
     const report = collectProviderUsageLimits(selected.instanceId, [selected], [cma], now);
-    expect(report?.accounts).toMatchObject([
-      {
-        id: "cma:cma-account",
-        sourceKind: "cma",
-        sourceError: "codex-multi-auth status failed",
-        enabled: false,
-        current: true,
-        subscription: {
-          planDisplayName: "ChatGPT Plus",
-          expiresAt: "2027-01-02T03:04:05.000Z",
-        },
-        limits: { checkedAt, windows: [{ usedPercent: 12 }] },
+    const cmaAccount = report?.accounts.find((account) => account.sourceKind === "cma");
+    expect(cmaAccount).toMatchObject({
+      id: "cma:cma-account",
+      sourceKind: "cma",
+      sourceError: "codex-multi-auth status failed",
+      enabled: false,
+      current: true,
+      subscription: {
+        planDisplayName: "ChatGPT Plus",
+        expiresAt: "2027-01-02T03:04:05.000Z",
       },
-    ]);
+      limits: { checkedAt, windows: [{ usedPercent: 12 }] },
+    });
   });
 
   it("surfaces source errors only for sources that carry the selected driver", () => {

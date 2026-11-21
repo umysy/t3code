@@ -4,9 +4,9 @@
 
 **Blocked by:** 05: Show CMA account details in Web Usage; 06: Show CMA account details in Mobile Usage
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Verify arbitrary account counts and all displayed quota and subscription fields.
-- [ ] Verify missing expiry, stale snapshots, and failed refresh retention.
-- [ ] Verify local Usage updates do not trigger account-wide probes.
-- [ ] Verify repeated refreshes are deduplicated and Cliproxy sources remain compatible.
+- [x] Verify arbitrary account counts and all displayed quota and subscription fields.
+- [x] Verify missing expiry, stale snapshots, and failed refresh retention.
+- [x] Verify local Usage updates do not trigger account-wide probes.
+- [x] Verify repeated refreshes are deduplicated and Cliproxy sources remain compatible.

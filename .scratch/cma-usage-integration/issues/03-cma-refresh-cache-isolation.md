@@ -4,8 +4,8 @@
 
 **Blocked by:** 02: Add CMA to the T3 Usage source flow
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Keep conversation completion independent from account-wide CMA probes.
-- [ ] Coalesce repeated live refresh requests and enforce the refresh age gate.
-- [ ] Refresh subscription data only with a CMA snapshot or stale adapter cache.
+- [x] Keep conversation completion independent from account-wide CMA probes.
+- [x] Coalesce repeated live refresh requests and enforce the refresh age gate.
+- [x] Refresh subscription data only with a CMA snapshot or stale adapter cache.

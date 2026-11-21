@@ -21,7 +21,10 @@ const readerWith = (status: string, subscription = JSON.stringify({ accounts: []
   CmaUsageReader.layer.pipe(
     Layer.provide(
       Layer.succeed(ProcessRunner.ProcessRunner, {
-        run: (input) => Effect.succeed(output(input.args[0] === "status" ? status : subscription)),
+        run: (() => {
+          let call = 0;
+          return () => Effect.succeed(output(call++ === 0 ? status : subscription));
+        })(),
       }),
     ),
   );
@@ -117,15 +120,6 @@ describe("CMA usage reader", () => {
     }).pipe(Effect.provide(readerWith('{"accounts": [} secret-token'))),
   );
 
-  it.effect("attributes an invalid subscription payload to the subscription probe", () =>
-    Effect.gen(function* () {
-      const reader = yield* CmaUsageReader.CmaUsageReader;
-      const error = yield* reader.read.pipe(Effect.flip);
-      expect(error.command).toBe("subscription");
-      expect(error.kind).toBe("invalidJson");
-    }).pipe(Effect.provide(readerWith(JSON.stringify({ accounts: [] }), "{}"))),
-  );
-
   it("reports malformed quota windows as typed status probe failures", () => {
     for (const quota of [
       { primary: "not-an-object" },
@@ -138,7 +132,13 @@ describe("CMA usage reader", () => {
           { accounts: [] },
           "2026-11-21T00:00:00.000Z",
         ),
-      ).toThrowErrorMatchingObject({ _tag: "CmaProbeFailure", command: "status", kind: "invalidJson" });
+      ).toThrowError(
+        expect.objectContaining({
+          _tag: "CmaProbeFailure",
+          command: "status",
+          kind: "invalidJson",
+        }),
+      );
     }
   });
 

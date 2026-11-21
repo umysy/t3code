@@ -4,8 +4,8 @@
 
 **Blocked by:** 03: Isolate local Usage updates from CMA refreshes
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Preserve arbitrary account counts through shared Usage aggregation.
-- [ ] Carry subscription and observation metadata to all clients.
-- [ ] Keep existing provider and Cliproxy aggregation behavior intact.
+- [x] Preserve arbitrary account counts through shared Usage aggregation.
+- [x] Carry subscription and observation metadata to all clients.
+- [x] Keep existing provider and Cliproxy aggregation behavior intact.
