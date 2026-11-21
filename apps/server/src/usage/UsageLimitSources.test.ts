@@ -21,8 +21,91 @@ import { HttpClient, HttpClientResponse } from "effect/http";
 import * as BackgroundPolicy from "../background/BackgroundPolicy.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import * as UsageLimitSources from "./UsageLimitSources.ts";
+import * as CmaUsageReader from "./cmaUsageReader.ts";
 
 const encodeConfigEvent = Schema.encodeSync(ServerConfigStreamEvent);
+
+it.effect("publishes the built-in CMA snapshot with disabled accounts visible", () =>
+  Effect.gen(function* () {
+    const sources = yield* UsageLimitSources.make;
+    yield* sources.refresh;
+    const cma = (yield* sources.current).find((source) => source.kind === "cma");
+    expect(cma).toMatchObject({
+      id: "cma",
+      kind: "cma",
+      accounts: [
+        {
+          id: "account-a",
+          driver: "codex",
+          enabled: true,
+          subscription: { planDisplayName: "ChatGPT Plus", expiresAt: "2027-01-02T03:04:05.000Z" },
+          usageLimits: {
+            windows: [
+              { id: "primary", label: "7-hour", usedPercent: 12, windowDurationMins: 420 },
+              { id: "secondary", label: "7-day", usedPercent: 34, windowDurationMins: 10080 },
+            ],
+          },
+        },
+        { id: "account-b", enabled: false },
+      ],
+    });
+  }).pipe(
+    Effect.provide([
+      ServerSettings.layerTest({ usageLimitSources: {} }),
+      Layer.mock(BackgroundPolicy.BackgroundPolicy)({
+        shouldRunScopeWork: () => Effect.succeed(false),
+      }),
+      Layer.succeed(SecretResolver.SecretResolver, {
+        label: (provider) => Effect.succeed(provider),
+        read: (references) => Effect.succeed(references.map(() => undefined)),
+        invalidate: () => Effect.void,
+      }),
+      Layer.succeed(
+        HttpClient.HttpClient,
+        HttpClient.make(() => Effect.die("Unexpected network request")),
+      ),
+      NodeCrypto.layer,
+      Layer.succeed(CmaUsageReader.CmaUsageReader, {
+        read: Effect.succeed([
+          {
+            id: "account-a",
+            email: "a@example.test",
+            enabled: true,
+            plan: "ChatGPT Plus",
+            subscription: {
+              planDisplayName: "ChatGPT Plus",
+              expiresAt: "2027-01-02T03:04:05.000Z",
+            },
+            quota: {
+              checkedAt: "2026-11-21T00:00:00.000Z",
+              windows: [
+                {
+                  id: "primary",
+                  label: "7-hour",
+                  usedPercent: 12,
+                  windowMinutes: 420,
+                  resetsAt: "2026-11-21T07:00:00.000Z",
+                },
+                {
+                  id: "secondary",
+                  label: "7-day",
+                  usedPercent: 34,
+                  windowMinutes: 10080,
+                  resetsAt: "2026-11-28T00:00:00.000Z",
+                },
+              ],
+            },
+          },
+          {
+            id: "account-b",
+            enabled: false,
+            quota: { checkedAt: "2026-11-21T00:00:00.000Z", windows: [] },
+          },
+        ]),
+      }),
+    ]),
+  ),
+);
 
 it.effect("keeps malformed source URLs encodable for config subscribers", () =>
   Effect.gen(function* () {
