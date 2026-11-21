@@ -301,6 +301,66 @@ it.effect("reads a management key from its secret provider", () => {
   );
 });
 
+it.effect("retains the last good CMA snapshot when a later refresh fails", () => {
+  let failed = false;
+  return Effect.gen(function* () {
+    yield* TestClock.setTime(Date.parse("2026-11-21T00:00:00.000Z"));
+    const sources = yield* UsageLimitSources.make;
+    yield* sources.refresh;
+    const first = (yield* sources.current).find((source) => source.kind === "cma");
+    expect(first?.accounts).toHaveLength(1);
+
+    failed = true;
+    yield* TestClock.adjust("5 minutes");
+    yield* sources.refresh;
+    const second = (yield* sources.current).find((source) => source.kind === "cma");
+    expect(second?.accounts).toEqual(first?.accounts);
+    expect(second?.error).toBe("codex-multi-auth status failed.");
+  }).pipe(
+    Effect.provide([
+      ServerSettings.layerTest({ usageLimitSources: {} }),
+      Layer.mock(BackgroundPolicy.BackgroundPolicy)({
+        shouldRunScopeWork: () => Effect.succeed(false),
+      }),
+      Layer.succeed(SecretResolver.SecretResolver, {
+        label: (provider) => Effect.succeed(provider),
+        read: (references) => Effect.succeed(references.map(() => undefined)),
+        invalidate: () => Effect.void,
+      }),
+      Layer.succeed(
+        HttpClient.HttpClient,
+        HttpClient.make(() => Effect.die("Unexpected network request")),
+      ),
+      NodeCrypto.layer,
+      Layer.succeed(CmaUsageReader.CmaUsageReader, {
+        read: Effect.suspend(() =>
+          failed
+            ? Effect.fail(
+                new CmaUsageReader.CmaProbeFailure({ command: "status", kind: "commandFailed" }),
+              )
+            : Effect.succeed([
+                {
+                  id: "account-a",
+                  email: "a@example.test",
+                  enabled: true,
+                  quota: {
+                    checkedAt: "2026-11-21T00:00:00.000Z",
+                    windows: [
+                      {
+                        id: "primary" as const,
+                        label: "7-hour" as const,
+                        usedPercent: 20,
+                      },
+                    ],
+                  },
+                },
+              ]),
+        ),
+      }),
+    ]),
+  );
+});
+
 it.effect("keeps an account's last good reading when the hub's next read of it is refused", () => {
   let refused = true;
   let workspace = "account-a";
