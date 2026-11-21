@@ -850,13 +850,17 @@ export function UsageLimitsPooled({
   const [segmentPopover] = useState(() => PopoverCreateHandle<SegmentPayload>());
   const segmentPopoverActions = useRef<PopoverPrimitive.Root.Actions | null>(null);
   const accounts = collectLimitAccounts(presentations);
+  const cmaAccounts = accounts.filter((account) => account.sourceKind === "cma");
   const pools = collectLimitPools(accounts, now);
   const notices = collectLimitNotices(presentations, m);
   const externalLinks = collectExternalUsageLinks(presentations, m);
   return (
     <div className="flex flex-col gap-8">
-      <CmaAccountsSection accounts={accounts} now={now} />
-      {pools.length === 0 && notices.length === 0 && externalLinks.length === 0 ? (
+      <CmaAccountsSection accounts={cmaAccounts} now={now} />
+      {cmaAccounts.length === 0 &&
+      pools.length === 0 &&
+      notices.length === 0 &&
+      externalLinks.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           <T>No provider on the selected environments reports subscription limits.</T>
         </p>

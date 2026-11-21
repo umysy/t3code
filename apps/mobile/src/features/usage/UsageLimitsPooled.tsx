@@ -495,6 +495,7 @@ export function UsageLimitsSection({
     <View className="gap-6">
       <CmaUsageAccountsSection accounts={cmaAccounts} />
       {pools.length === 0 &&
+      cmaAccounts.length === 0 &&
       notices.length === 0 &&
       failedLabels.length === 0 &&
       externalLinks.length === 0 ? (

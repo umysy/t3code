@@ -149,5 +149,8 @@ describe("UsageLimitsPooled ChatGPT usage card", () => {
     await expect.element(screen.getByText("Stale").first()).toBeVisible();
     await expect.element(screen.getByText("Disabled")).toBeVisible();
     await expect.element(screen.getByText("Unknown").first()).toBeVisible();
+    expect(screen.container.textContent).not.toContain(
+      "No provider on the selected environments reports subscription limits.",
+    );
   });
 });

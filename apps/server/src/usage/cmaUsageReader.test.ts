@@ -125,4 +125,28 @@ describe("CMA usage reader", () => {
       expect(error.kind).toBe("invalidJson");
     }).pipe(Effect.provide(readerWith(JSON.stringify({ accounts: [] }), "{}"))),
   );
+
+  it("leaves subscription expiry unknown when CMA omits it", () => {
+    const accounts = CmaUsageReader.normalizeCmaUsage(
+      {
+        accounts: [
+          {
+            id: "acct-a",
+            quota: {
+              primary: { usedPercent: 12, resetAtMs: 1_800_000_000_000 },
+            },
+          },
+        ],
+      },
+      { accounts: [{ id: "acct-a", planDisplayName: "ChatGPT Plus", renewsAt: "2026-12-01" }] },
+      "2026-11-21T00:00:00.000Z",
+    );
+
+    expect(accounts[0]?.subscription).toEqual({
+      planDisplayName: "ChatGPT Plus",
+      renewsAt: "2026-12-01T00:00:00.000Z",
+    });
+    expect(accounts[0]?.subscription?.expiresAt).toBeUndefined();
+    expect(accounts[0]?.quota.windows[0]?.resetsAt).toBe("2027-01-15T08:00:00.000Z");
+  });
 });
