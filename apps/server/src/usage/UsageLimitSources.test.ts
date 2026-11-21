@@ -25,6 +25,49 @@ import * as CmaUsageReader from "./cmaUsageReader.ts";
 
 const encodeConfigEvent = Schema.encodeSync(ServerConfigStreamEvent);
 
+it.effect("coalesces CMA refreshes and keeps a successful snapshot for five minutes", () => {
+  let reads = 0;
+  return Effect.gen(function* () {
+    yield* TestClock.setTime(Date.parse("2026-11-21T00:00:00.000Z"));
+    const sources = yield* UsageLimitSources.make;
+    yield* sources.refresh;
+    yield* sources.refresh;
+    expect(reads).toBe(1);
+    yield* TestClock.adjust("5 minutes");
+    yield* sources.refresh;
+    expect(reads).toBe(2);
+  }).pipe(
+    Effect.provide([
+      ServerSettings.layerTest({ usageLimitSources: {} }),
+      Layer.mock(BackgroundPolicy.BackgroundPolicy)({
+        shouldRunScopeWork: () => Effect.succeed(false),
+      }),
+      Layer.succeed(SecretResolver.SecretResolver, {
+        label: (provider) => Effect.succeed(provider),
+        read: (references) => Effect.succeed(references.map(() => undefined)),
+        invalidate: () => Effect.void,
+      }),
+      Layer.succeed(
+        HttpClient.HttpClient,
+        HttpClient.make(() => Effect.die("Unexpected network request")),
+      ),
+      NodeCrypto.layer,
+      Layer.succeed(CmaUsageReader.CmaUsageReader, {
+        read: Effect.sync(() => {
+          reads += 1;
+          return [
+            {
+              id: "account-a",
+              enabled: true,
+              quota: { checkedAt: "2026-11-21T00:00:00.000Z", windows: [] },
+            },
+          ];
+        }),
+      }),
+    ]),
+  );
+});
+
 it.effect("publishes the built-in CMA snapshot with disabled accounts visible", () =>
   Effect.gen(function* () {
     const sources = yield* UsageLimitSources.make;

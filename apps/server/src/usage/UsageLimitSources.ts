@@ -15,10 +15,12 @@ import { resolveServerBackgroundActivitySettings } from "@t3tools/shared/backgro
 import { antigravityWindowLimitsModel, hubRoutes } from "@t3tools/shared/usageLimits";
 import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
+import * as Deferred from "effect/Deferred";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Equal from "effect/Equal";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import * as PubSub from "effect/PubSub";
 import * as Ref from "effect/Ref";
 import * as Semaphore from "effect/Semaphore";
@@ -93,6 +95,7 @@ function keepLastGoodReadings(
 }
 
 const CMA_SOURCE_ID = UsageLimitSourceId.make("cma");
+const CMA_REFRESH_MIN_AGE_MS = Duration.toMillis(Duration.minutes(5));
 
 const cmaAccount = (account: CmaUsageReader.CmaUsageAccount): UsageLimitSourceAccount => ({
   id: account.id,
@@ -145,6 +148,7 @@ export const make = Effect.gen(function* () {
     return settingsSecretLiteral(resolved.managementKey);
   });
   const stateRef = yield* Ref.make<ReadonlyArray<UsageLimitSourceSnapshot>>([]);
+  const cmaLastReadAtMs = yield* Ref.make<number | undefined>(undefined);
   const changes = yield* Effect.acquireRelease(
     PubSub.unbounded<ReadonlyArray<UsageLimitSourceSnapshot>>(),
     PubSub.shutdown,
@@ -187,13 +191,27 @@ export const make = Effect.gen(function* () {
   ) {
     const cmaReader = yield* Effect.serviceOption(CmaUsageReader.CmaUsageReader);
     if (cmaReader._tag === "None") return undefined;
-    const checkedAt = DateTime.formatIso(yield* DateTime.now);
+    const observedAt = yield* DateTime.now;
+    const observedAtMs = DateTime.toEpochMillis(observedAt);
+    const cached = previous.find((source) => source.id === CMA_SOURCE_ID);
+    const lastReadAtMs = yield* Ref.get(cmaLastReadAtMs);
+    if (
+      cached !== undefined &&
+      cached.error === undefined &&
+      lastReadAtMs !== undefined &&
+      observedAtMs - lastReadAtMs < CMA_REFRESH_MIN_AGE_MS
+    ) {
+      return cached;
+    }
+    const checkedAt = DateTime.formatIso(observedAt);
     const result = yield* cmaReader.value.read.pipe(Effect.result);
-    if (result._tag === "Success") return cmaSnapshot(checkedAt, result.success);
-    const last = previous.find((source) => source.id === CMA_SOURCE_ID);
+    if (result._tag === "Success") {
+      yield* Ref.set(cmaLastReadAtMs, observedAtMs);
+      return cmaSnapshot(checkedAt, result.success);
+    }
     return {
       ...cmaSnapshot(checkedAt, []),
-      accounts: last?.accounts ?? [],
+      accounts: cached?.accounts ?? [],
       error: result.failure.message,
     };
   });
@@ -209,7 +227,7 @@ export const make = Effect.gen(function* () {
 
   // Serialize refreshes so slow old-settings reads cannot resurrect removed sources after newer refreshes.
   const refreshLock = yield* Semaphore.make(1);
-  const refresh = Effect.gen(function* () {
+  const runRefresh = Effect.gen(function* () {
     const settings = yield* settingsService.getSettings.pipe(
       Effect.orElseSucceed((): ServerSettings | null => null),
     );
@@ -227,6 +245,39 @@ export const make = Effect.gen(function* () {
       keepLastGoodReadings(previous, [...snapshots, ...(cma === undefined ? [] : [cma])]),
     );
   }).pipe(refreshLock.withPermits(1), Effect.ignoreCause({ log: true }));
+
+  type RefreshCompletion = Deferred.Deferred<void>;
+  const refreshInFlightRef = yield* Ref.make<Option.Option<RefreshCompletion>>(Option.none());
+  const refresh = Effect.fn("UsageLimitSources.refresh")(function* () {
+    const claimed = yield* Effect.uninterruptible(
+      Ref.modify(
+        refreshInFlightRef,
+        (
+          inFlight,
+        ): readonly [
+          { readonly owner: boolean; readonly completion: RefreshCompletion },
+          Option.Option<RefreshCompletion>,
+        ] => {
+          if (Option.isSome(inFlight)) {
+            return [{ owner: false, completion: inFlight.value }, inFlight];
+          }
+          const completion = Deferred.makeUnsafe<void>();
+          return [{ owner: true, completion }, Option.some(completion)];
+        },
+      ),
+    );
+    if (claimed.owner) {
+      yield* runRefresh.pipe(
+        Effect.onExit((exit) =>
+          Ref.set(refreshInFlightRef, Option.none()).pipe(
+            Effect.andThen(Deferred.done(claimed.completion, exit)),
+          ),
+        ),
+        Effect.forkDetach,
+      );
+    }
+    yield* Deferred.await(claimed.completion);
+  });
 
   // Shares the refresh lock so a stale in-flight read cannot overwrite a redemption.
   const consumeResetCredit = Effect.fn("UsageLimitSources.consumeResetCredit")(function* (
