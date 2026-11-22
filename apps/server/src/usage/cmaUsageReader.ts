@@ -301,19 +301,31 @@ const decodeJson = Effect.fn("CmaUsageReader.decodeJson")(function* (
       try {
         return JSON.parse(trimmed) as unknown;
       } catch {
-        const objectStart = trimmed.indexOf("{");
-        const arrayStart = trimmed.indexOf("[");
-        const start =
-          objectStart === -1
-            ? arrayStart
-            : arrayStart === -1
-              ? objectStart
-              : Math.min(objectStart, arrayStart);
-        const objectEnd = trimmed.lastIndexOf("}");
-        const arrayEnd = trimmed.lastIndexOf("]");
-        const end = Math.max(objectEnd, arrayEnd);
-        if (start === -1 || end <= start) throw new Error("No JSON document");
-        return JSON.parse(trimmed.slice(start, end + 1)) as unknown;
+        const start = [...trimmed].findIndex((character) => character === "{" || character === "[");
+        if (start === -1) throw new Error("No JSON document");
+        const opening = trimmed[start];
+        const closing = opening === "{" ? "}" : "]";
+        let depth = 0;
+        let inString = false;
+        let escaped = false;
+        for (let index = start; index < trimmed.length; index += 1) {
+          const character = trimmed[index];
+          if (inString) {
+            if (escaped) escaped = false;
+            else if (character === "\\") escaped = true;
+            else if (character === '"') inString = false;
+            continue;
+          }
+          if (character === '"') {
+            inString = true;
+          } else if (character === opening) {
+            depth += 1;
+          } else if (character === closing) {
+            depth -= 1;
+            if (depth === 0) return JSON.parse(trimmed.slice(start, index + 1)) as unknown;
+          }
+        }
+        throw new Error("Incomplete JSON document");
       }
     },
     catch: () => new CmaProbeFailure({ command, kind: "invalidJson" }),

@@ -122,6 +122,21 @@ describe("CMA usage reader", () => {
     }).pipe(Effect.provide(readerWith('{"accounts": [} secret-token'))),
   );
 
+  it.effect("accepts trailing CLI text after the JSON document", () =>
+    Effect.gen(function* () {
+      const reader = yield* CmaUsageReader.CmaUsageReader;
+      const accounts = yield* reader.read;
+      expect(accounts).toHaveLength(1);
+      expect(accounts[0]?.id).toBe("acct-a");
+    }).pipe(
+      Effect.provide(
+        readerWith(
+          '{"accounts":[{"id":"acct-a","quota":{"primary":{"usedPercent":10}}}]}\nwarning: {not-json}\n',
+        ),
+      ),
+    ),
+  );
+
   it("reports malformed quota windows as typed status probe failures", () => {
     for (const quota of [
       { primary: "not-an-object" },
