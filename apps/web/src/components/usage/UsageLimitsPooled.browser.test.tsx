@@ -143,8 +143,8 @@ describe("UsageLimitsPooled ChatGPT usage card", () => {
     await expect.element(screen.getByText("work-account")).toBeVisible();
     await expect.element(screen.getByText("personal-account")).toBeVisible();
     await expect.element(screen.getByText("third-account")).toBeVisible();
-    await expect.element(screen.getByText("7-hour")).toBeVisible();
-    await expect.element(screen.getByText("7-day")).toBeVisible();
+    await expect.element(screen.getByText("7-hour").first()).toBeVisible();
+    await expect.element(screen.getByText("7-day").first()).toBeVisible();
     await expect.element(screen.getByText("ChatGPT Pro").first()).toBeVisible();
     await expect.element(screen.getByText("Stale").first()).toBeVisible();
     await expect.element(screen.getByText("Disabled")).toBeVisible();
