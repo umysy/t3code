@@ -1466,7 +1466,7 @@ it.effect("on-demand clients get provider config without workspace snapshots", (
       Layer.mock(UsageLimitSources.UsageLimitSources)({
         current: Effect.succeed([]),
         streamChanges: Stream.make([]),
-        refresh: Effect.void,
+        refresh: () => Effect.void,
       }),
       Layer.mock(RemoteOpenTargets.RemoteOpenTargets)({
         resolveTargets: () => Effect.succeed([]),

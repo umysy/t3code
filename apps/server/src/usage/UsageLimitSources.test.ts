@@ -30,12 +30,14 @@ it.effect("coalesces CMA refreshes and keeps a successful snapshot for five minu
   return Effect.gen(function* () {
     yield* TestClock.setTime(Date.parse("2026-11-21T00:00:00.000Z"));
     const sources = yield* UsageLimitSources.make;
-    yield* sources.refresh;
-    yield* sources.refresh;
+    yield* sources.refresh();
+    yield* sources.refresh();
     expect(reads).toBe(1);
     yield* TestClock.adjust("5 minutes");
-    yield* sources.refresh;
+    yield* sources.refresh();
     expect(reads).toBe(2);
+    yield* sources.refresh({ force: true });
+    expect(reads).toBe(3);
   }).pipe(
     Effect.provide([
       ServerSettings.layerTest({ usageLimitSources: {} }),
@@ -68,10 +70,52 @@ it.effect("coalesces CMA refreshes and keeps a successful snapshot for five minu
   );
 });
 
+it.effect("throttles repeated failed CMA reads for five minutes", () => {
+  let reads = 0;
+  return Effect.gen(function* () {
+    yield* TestClock.setTime(Date.parse("2026-11-21T00:00:00.000Z"));
+    const sources = yield* UsageLimitSources.make;
+    yield* sources.refresh();
+    yield* sources.refresh();
+    expect(reads).toBe(1);
+    yield* TestClock.adjust("5 minutes");
+    yield* sources.refresh();
+    expect(reads).toBe(2);
+  }).pipe(
+    Effect.provide([
+      ServerSettings.layerTest({ usageLimitSources: {} }),
+      Layer.mock(BackgroundPolicy.BackgroundPolicy)({
+        shouldRunScopeWork: () => Effect.succeed(false),
+      }),
+      Layer.succeed(SecretResolver.SecretResolver, {
+        label: (provider) => Effect.succeed(provider),
+        read: (references) => Effect.succeed(references.map(() => undefined)),
+        invalidate: () => Effect.void,
+      }),
+      Layer.succeed(
+        HttpClient.HttpClient,
+        HttpClient.make(() => Effect.die("Unexpected network request")),
+      ),
+      NodeCrypto.layer,
+      Layer.succeed(CmaUsageReader.CmaUsageReader, {
+        read: Effect.suspend(() => {
+          reads += 1;
+          return Effect.fail(
+            new CmaUsageReader.CmaProbeFailure({
+              command: "status",
+              kind: "commandFailed",
+            }),
+          );
+        }),
+      }),
+    ]),
+  );
+});
+
 it.effect("publishes the built-in CMA snapshot with disabled accounts visible", () =>
   Effect.gen(function* () {
     const sources = yield* UsageLimitSources.make;
-    yield* sources.refresh;
+    yield* sources.refresh();
     const cma = (yield* sources.current).find((source) => source.kind === "cma");
     expect(cma).toMatchObject({
       id: "cma",
@@ -90,6 +134,19 @@ it.effect("publishes the built-in CMA snapshot with disabled accounts visible", 
           },
         },
         { id: "account-b", enabled: false },
+        {
+          id: "account-c",
+          email: "c@example.test",
+          enabled: true,
+          current: false,
+          subscription: { planDisplayName: "ChatGPT Pro", expiresAt: "2027-06-15T03:04:05.000Z" },
+          usageLimits: {
+            windows: [
+              { id: "primary", label: "5-hour", usedPercent: 48, windowDurationMins: 300 },
+              { id: "secondary", label: "7-day", usedPercent: 61, windowDurationMins: 10080 },
+            ],
+          },
+        },
       ],
     });
   }).pipe(
@@ -109,7 +166,7 @@ it.effect("publishes the built-in CMA snapshot with disabled accounts visible", 
       ),
       NodeCrypto.layer,
       Layer.succeed(CmaUsageReader.CmaUsageReader, {
-        read: Effect.succeed([
+        read: Effect.succeed<ReadonlyArray<CmaUsageReader.CmaUsageAccount>>([
           {
             id: "account-a",
             email: "a@example.test",
@@ -144,6 +201,35 @@ it.effect("publishes the built-in CMA snapshot with disabled accounts visible", 
             enabled: false,
             quota: { checkedAt: "2026-11-21T00:00:00.000Z", windows: [] },
           },
+          {
+            id: "account-c",
+            email: "c@example.test",
+            enabled: true,
+            current: false,
+            subscription: {
+              planDisplayName: "ChatGPT Pro",
+              expiresAt: "2027-06-15T03:04:05.000Z",
+            },
+            quota: {
+              checkedAt: "2026-11-21T00:00:00.000Z",
+              windows: [
+                {
+                  id: "primary",
+                  label: "5-hour",
+                  usedPercent: 48,
+                  windowMinutes: 300,
+                  resetsAt: "2026-11-21T05:00:00.000Z",
+                },
+                {
+                  id: "secondary",
+                  label: "7-day",
+                  usedPercent: 61,
+                  windowMinutes: 10080,
+                  resetsAt: "2026-11-28T00:00:00.000Z",
+                },
+              ],
+            },
+          },
         ]),
       }),
     ]),
@@ -153,7 +239,7 @@ it.effect("publishes the built-in CMA snapshot with disabled accounts visible", 
 it.effect("keeps malformed source URLs encodable for config subscribers", () =>
   Effect.gen(function* () {
     const sources = yield* UsageLimitSources.make;
-    yield* sources.refresh;
+    yield* sources.refresh();
     const snapshots = yield* sources.current;
     expect(snapshots.map((source) => source.label)).toEqual([
       "local-hub",
@@ -306,13 +392,13 @@ it.effect("retains the last good CMA snapshot when a later refresh fails", () =>
   return Effect.gen(function* () {
     yield* TestClock.setTime(Date.parse("2026-11-21T00:00:00.000Z"));
     const sources = yield* UsageLimitSources.make;
-    yield* sources.refresh;
+    yield* sources.refresh();
     const first = (yield* sources.current).find((source) => source.kind === "cma");
     expect(first?.accounts).toHaveLength(1);
 
     failed = true;
     yield* TestClock.adjust("5 minutes");
-    yield* sources.refresh;
+    yield* sources.refresh();
     const second = (yield* sources.current).find((source) => source.kind === "cma");
     expect(second?.accounts).toEqual(first?.accounts);
     expect(second?.error).toBe("codex-multi-auth status failed.");
@@ -368,7 +454,7 @@ it.effect("keeps an account's last good reading when the hub's next read of it i
   const readAccount = Effect.gen(function* () {
     const sources = yield* UsageLimitSources.make;
     return Effect.gen(function* () {
-      yield* sources.refresh;
+      yield* sources.refresh();
       const [source] = yield* sources.current;
       return source?.accounts[0]?.usageLimits;
     });
@@ -660,7 +746,7 @@ it.effect("the reset fallback refreshes its hub, and a stalled hub cannot hold t
           Layer.provide(
             Layer.mock(UsageLimitSources.UsageLimitSources)({
               current: Effect.sync(() => current),
-              refresh: Effect.suspend(() => refresh),
+              refresh: () => Effect.suspend(() => refresh),
             }),
           ),
         ),

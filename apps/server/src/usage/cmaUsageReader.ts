@@ -3,6 +3,7 @@ import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
+// @effect-diagnostics deterministicKeys:off globalDate:off globalJsonInEffect:off
 
 import * as ProcessRunner from "../processRunner.ts";
 
@@ -10,7 +11,7 @@ export type CmaUsageWindowId = "primary" | "secondary";
 
 export interface CmaUsageWindow {
   readonly id: CmaUsageWindowId;
-  readonly label: "7-hour" | "7-day";
+  readonly label: string;
   readonly usedPercent: number;
   readonly windowMinutes?: number;
   readonly resetsAt?: string;
@@ -101,11 +102,33 @@ const isoFromString = (value: string | undefined): string | undefined => {
   return Number.isFinite(millis) ? new Date(millis).toISOString() : undefined;
 };
 
+const labelAccountId = (record: JsonRecord): string | undefined => {
+  const label = optionalString(record, "label") ?? optionalString(record, "accountLabel");
+  return label?.match(/\bid:([^\]),\s]+)/i)?.[1];
+};
+
+const labelEmail = (record: JsonRecord): string | undefined => {
+  const label = optionalString(record, "label") ?? optionalString(record, "accountLabel");
+  const email = label?.match(/,\s*([^,\s()]+@[^,\s()]+),\s*id:/i)?.[1];
+  return email && !email.includes("***") ? email : undefined;
+};
+
+const quotaWindowLabel = (key: "primary" | "secondary", windowMinutes: number | undefined) => {
+  if (windowMinutes !== undefined && windowMinutes % 1_440 === 0) {
+    return `${windowMinutes / 1_440}-day`;
+  }
+  if (windowMinutes !== undefined && windowMinutes % 60 === 0) {
+    return `${windowMinutes / 60}-hour`;
+  }
+  return key === "primary" ? "5-hour" : "7-day";
+};
+
 const accountIdentity = (record: JsonRecord, index: number): string =>
   optionalString(record, "id") ??
   optionalString(record, "accountId") ??
   optionalString(record, "account_id") ??
   optionalString(record, "email") ??
+  labelAccountId(record) ??
   `cma-${index}`;
 
 const identityCandidates = (record: JsonRecord, index: number): ReadonlyArray<string> => [
@@ -116,6 +139,7 @@ const identityCandidates = (record: JsonRecord, index: number): ReadonlyArray<st
       optionalString(record, "accountId"),
       optionalString(record, "account_id"),
       optionalString(record, "email"),
+      labelAccountId(record),
       optionalString(record, "label"),
       String(index),
       `cma-${index}`,
@@ -138,29 +162,24 @@ const accountList = (
 };
 
 const subscriptionRecord = (record: JsonRecord): CmaUsageSubscription | undefined => {
+  const planType = optionalString(record, "planType");
+  const planDisplayName =
+    optionalString(record, "planDisplayName") ?? optionalString(record, "planLabel");
+  const subscriptionPlan = optionalString(record, "subscriptionPlan");
+  const billingPeriod = optionalString(record, "billingPeriod");
+  const active = optionalBoolean(record, "active");
+  const expiresAt = isoFromString(optionalString(record, "expiresAt"));
+  const renewsAt = isoFromString(optionalString(record, "renewsAt"));
+  const willRenew = optionalBoolean(record, "willRenew");
   const subscription: CmaUsageSubscription = {
-    ...(optionalString(record, "planType") ? { planType: optionalString(record, "planType") } : {}),
-    ...(optionalString(record, "planDisplayName")
-      ? { planDisplayName: optionalString(record, "planDisplayName") }
-      : {}),
-    ...(optionalString(record, "subscriptionPlan")
-      ? { subscriptionPlan: optionalString(record, "subscriptionPlan") }
-      : {}),
-    ...(optionalString(record, "billingPeriod")
-      ? { billingPeriod: optionalString(record, "billingPeriod") }
-      : {}),
-    ...(optionalBoolean(record, "active") !== undefined
-      ? { active: optionalBoolean(record, "active") }
-      : {}),
-    ...(isoFromString(optionalString(record, "expiresAt"))
-      ? { expiresAt: isoFromString(optionalString(record, "expiresAt")) }
-      : {}),
-    ...(isoFromString(optionalString(record, "renewsAt"))
-      ? { renewsAt: isoFromString(optionalString(record, "renewsAt")) }
-      : {}),
-    ...(optionalBoolean(record, "willRenew") !== undefined
-      ? { willRenew: optionalBoolean(record, "willRenew") }
-      : {}),
+    ...(planType ? { planType } : {}),
+    ...(planDisplayName ? { planDisplayName } : {}),
+    ...(subscriptionPlan ? { subscriptionPlan } : {}),
+    ...(billingPeriod ? { billingPeriod } : {}),
+    ...(active !== undefined ? { active } : {}),
+    ...(expiresAt ? { expiresAt } : {}),
+    ...(renewsAt ? { renewsAt } : {}),
+    ...(willRenew !== undefined ? { willRenew } : {}),
   };
   return Object.keys(subscription).length === 0 ? undefined : subscription;
 };
@@ -175,7 +194,8 @@ const quotaWindow = (
     throw new CmaProbeFailure({ command: "status", kind: "invalidJson" });
   }
   const usedPercent = optionalNumber(value, "usedPercent");
-  if (usedPercent === undefined || usedPercent < 0 || usedPercent > 100) {
+  if (usedPercent === undefined) return undefined;
+  if (usedPercent < 0 || usedPercent > 100) {
     throw new CmaProbeFailure({ command: "status", kind: "invalidJson" });
   }
   const windowMinutes = optionalNumber(value, "windowMinutes");
@@ -192,12 +212,13 @@ const quotaWindow = (
   ) {
     throw new CmaProbeFailure({ command: "status", kind: "invalidJson" });
   }
+  const resetsAt = isoFromMillis(resetAtMs);
   return {
     id: key,
-    label: key === "primary" ? "7-hour" : "7-day",
+    label: quotaWindowLabel(key, windowMinutes),
     usedPercent,
     ...(windowMinutes !== undefined ? { windowMinutes } : {}),
-    ...(isoFromMillis(resetAtMs) ? { resetsAt: isoFromMillis(resetAtMs) } : {}),
+    ...(resetsAt ? { resetsAt } : {}),
   };
 };
 
@@ -239,14 +260,14 @@ const normalizeAccounts = (
       optionalString(nestedSubscription ?? {}, "planLabel") ??
       optionalString(nestedSubscription ?? {}, "planType");
 
+    const email = optionalString(record, "email") ?? labelEmail(record);
+    const current = optionalBoolean(record, "current");
     return {
       id: accountIdentity(record, index),
-      ...(optionalString(record, "email") ? { email: optionalString(record, "email") } : {}),
+      ...(email ? { email } : {}),
       ...(plan ? { plan } : {}),
       enabled: optionalBoolean(record, "enabled") ?? true,
-      ...(optionalBoolean(record, "current") !== undefined
-        ? { current: optionalBoolean(record, "current") }
-        : {}),
+      ...(current !== undefined ? { current } : {}),
       ...(subscriptionData ? { subscription: subscriptionData } : {}),
       quota: {
         checkedAt,
@@ -311,14 +332,17 @@ const make = Effect.gen(function* () {
           ? error
           : new CmaProbeFailure({ command: "status", kind: "invalidJson" }),
     });
-    const subscriptionValue = yield* runJson("subscription");
-    const subscriptions = yield* Effect.try({
-      try: () => accountList(subscriptionValue, "subscription"),
-      catch: (error) =>
-        isCmaProbeFailure(error)
-          ? error
-          : new CmaProbeFailure({ command: "subscription", kind: "invalidJson" }),
-    });
+    const subscriptionResult = yield* runJson("subscription").pipe(Effect.result);
+    const subscriptions =
+      subscriptionResult._tag === "Success"
+        ? yield* Effect.try({
+            try: () => accountList(subscriptionResult.success, "subscription"),
+            catch: (error) =>
+              isCmaProbeFailure(error)
+                ? error
+                : new CmaProbeFailure({ command: "subscription", kind: "invalidJson" }),
+          }).pipe(Effect.orElseSucceed(() => [] as ReadonlyArray<JsonRecord>))
+        : [];
     return normalizeAccounts(status, subscriptions, observedAt);
   });
 

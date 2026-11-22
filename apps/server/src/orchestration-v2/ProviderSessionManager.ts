@@ -67,7 +67,10 @@ import {
 import * as ProviderAdapterRegistry from "./ProviderAdapterRegistry.ts";
 import * as ProjectionStore from "./ProjectionStore.ts";
 
-const DEFAULT_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
+// Completed provider threads are reloaded on demand. A short idle window prevents old agent
+// threads and their provider processes from accumulating while preserving a brief follow-up grace
+// period for users who continue the same conversation.
+const DEFAULT_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
 const DEFAULT_MAX_IDLE_PIN_MS = 4 * 60 * 60 * 1000;
 const RELEASE_SCOPE_CLOSE_TIMEOUT_MS = 30 * 1000;
 /** Past adapters' own 10 s stop fallbacks, so they settle first when the provider answers at all. */

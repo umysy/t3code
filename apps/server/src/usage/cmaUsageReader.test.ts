@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 
 import * as ProcessRunner from "../processRunner.ts";
 import * as CmaUsageReader from "./cmaUsageReader.ts";
@@ -9,7 +10,7 @@ const output = (stdout: string, code = 0) =>
   ({
     stdout,
     stderr: "",
-    code,
+    code: ChildProcessSpawner.ExitCode(code),
     timedOut: false,
     stdoutTruncated: false,
     stderrTruncated: false,
@@ -23,7 +24,8 @@ const readerWith = (status: string, subscription = JSON.stringify({ accounts: []
       Layer.succeed(ProcessRunner.ProcessRunner, {
         run: (() => {
           let call = 0;
-          return () => Effect.succeed(output(call++ === 0 ? status : subscription));
+          return (_input: ProcessRunner.ProcessRunInput) =>
+            Effect.succeed(output(call++ === 0 ? status : subscription));
         })(),
       }),
     ),
@@ -106,7 +108,7 @@ describe("CMA usage reader", () => {
     expect(accounts[1]).toMatchObject({ id: "acct-b", enabled: false, quota: { windows: [] } });
     expect(accounts[2]).toMatchObject({
       id: "acct-c",
-      quota: { windows: [{ id: "primary", usedPercent: 99, label: "7-hour" }] },
+      quota: { windows: [{ id: "primary", usedPercent: 99, label: "5-hour" }] },
     });
   });
 
@@ -164,5 +166,66 @@ describe("CMA usage reader", () => {
     });
     expect(accounts[0]?.subscription?.expiresAt).toBeUndefined();
     expect(accounts[0]?.quota.windows[0]?.resetsAt).toBe("2027-01-15T08:00:00.000Z");
+  });
+
+  it("uses CMA's reported window duration for the quota label", () => {
+    const accounts = CmaUsageReader.normalizeCmaUsage(
+      { accounts: [{ id: "acct-a", quota: { primary: { usedPercent: 12, windowMinutes: 300 } } }] },
+      { accounts: [] },
+      "2026-11-21T00:00:00.000Z",
+    );
+
+    expect(accounts[0]?.quota.windows[0]?.label).toBe("5-hour");
+  });
+
+  it("accepts CMA status rows with an empty quota window and derives identity from labels", () => {
+    const accounts = CmaUsageReader.normalizeCmaUsage(
+      {
+        accounts: [
+          {
+            label: "Account 1 (Token account [id:89bbe3], person@example.com, id:89bbe3)",
+            enabled: true,
+            current: true,
+            subscription: { planType: "plus", planLabel: "Plus" },
+            quota: {
+              updatedAt: 1_700_000_000_000,
+              primary: {},
+              secondary: { usedPercent: 35, windowMinutes: 10_080, resetAtMs: 1_700_604_800_000 },
+            },
+          },
+        ],
+      },
+      {
+        accounts: [
+          {
+            index: 0,
+            label: "Account 1 (Token account [id:89bbe3], pe***@***.com, id:89bbe3)",
+            planType: "plus",
+            planDisplayName: "Plus",
+            expiresAt: "2026-12-19T20:36:56+00:00",
+          },
+        ],
+      },
+      "2023-11-14T22:13:20.000Z",
+    );
+
+    expect(accounts[0]).toMatchObject({
+      id: "89bbe3",
+      email: "person@example.com",
+      plan: "Plus",
+      subscription: {
+        planDisplayName: "Plus",
+        expiresAt: "2026-12-19T20:36:56.000Z",
+      },
+      quota: {
+        windows: [
+          {
+            id: "secondary",
+            usedPercent: 35,
+            windowMinutes: 10_080,
+          },
+        ],
+      },
+    });
   });
 });

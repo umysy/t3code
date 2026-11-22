@@ -21,6 +21,7 @@ import { Argument, Command, Flag } from "effect/cli";
 import { ChildProcess } from "effect/process";
 
 import { defaultDevMemoryLimitBytes, enforceDevMemoryLimit } from "./lib/dev-memory-limit.ts";
+import { acquireDevSessionLock } from "./lib/dev-session-lock.ts";
 import { type DevShareError, shareDevServer, unshareDevServer } from "./lib/dev-share.ts";
 import { loadRepoEnv } from "./lib/public-config.ts";
 
@@ -323,6 +324,7 @@ export const createDevRunnerEnv = Effect.fn("dev-runner.createDevRunnerEnv")(fun
 
   const output: NodeJS.ProcessEnv = {
     ...baseEnv,
+    T3CODE_ENVIRONMENT_ROLE: baseEnv.T3CODE_ENVIRONMENT_ROLE ?? "development",
     PORT: String(webPort),
     VITE_DEV_SERVER_URL:
       devUrl?.toString() ??
@@ -815,6 +817,11 @@ export const runDevRunnerWithInput = Effect.fn("dev-runner.runDevRunnerWithInput
   if (input.dryRun) {
     return;
   }
+  const sessionLock = yield* Effect.acquireRelease(
+    Effect.sync(() => acquireDevSessionLock(baseDir, input.mode)),
+    (lock) => Effect.sync(lock.release),
+  );
+  yield* Effect.logInfo(`[dev-runner] session lock=${sessionLock.path}`);
 
   const sharedWebPort = BASE_WEB_PORT + webOffset;
   let built = false;
@@ -962,7 +969,7 @@ export const runDevRunnerWithInput = Effect.fn("dev-runner.runDevRunnerWithInput
       exitCode,
     });
   }
-});
+}, Effect.scoped);
 
 const NonNegativeInt = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0));
 
@@ -1040,7 +1047,7 @@ const devRunnerCli = Command.make("dev-runner", {
   memoryLimitGb: Flag.Int("memory-limit-gb").pipe(
     Flag.withSchema(NonNegativeInt),
     Flag.withDescription(
-      "Stop the dev server when it and its child processes use more than this many GiB of RAM plus swap (equivalent to T3CODE_DEV_MEMORY_LIMIT_GB). Defaults to half of RAM, at most 16. 0 turns it off. Linux only.",
+      "Stop the dev server when it and its child processes use more than this many GiB of RAM plus swap (equivalent to T3CODE_DEV_MEMORY_LIMIT_GB). Defaults to half of RAM, at most 16. 0 turns it off. Linux and Windows.",
     ),
     Flag.withFallbackConfig(
       Config.schema(NonNegativeInt, "T3CODE_DEV_MEMORY_LIMIT_GB").pipe(

@@ -40,7 +40,7 @@ export class UsageLimitSources extends Context.Service<
   {
     readonly current: Effect.Effect<ReadonlyArray<UsageLimitSourceSnapshot>>;
     readonly streamChanges: Stream.Stream<ReadonlyArray<UsageLimitSourceSnapshot>>;
-    readonly refresh: Effect.Effect<void>;
+    readonly refresh: (options?: { readonly force?: boolean }) => Effect.Effect<void>;
     readonly consumeResetCredit: (
       input: UsageLimitSourceConsumeResetCreditInput,
     ) => Effect.Effect<ProviderConsumeResetCreditResult, UsageLimitSourceError>;
@@ -148,7 +148,7 @@ export const make = Effect.gen(function* () {
     return settingsSecretLiteral(resolved.managementKey);
   });
   const stateRef = yield* Ref.make<ReadonlyArray<UsageLimitSourceSnapshot>>([]);
-  const cmaLastReadAtMs = yield* Ref.make<number | undefined>(undefined);
+  const cmaLastAttemptAtMs = yield* Ref.make<number | undefined>(undefined);
   const changes = yield* Effect.acquireRelease(
     PubSub.unbounded<ReadonlyArray<UsageLimitSourceSnapshot>>(),
     PubSub.shutdown,
@@ -188,25 +188,26 @@ export const make = Effect.gen(function* () {
 
   const readCmaSource = Effect.fn("UsageLimitSources.readCmaSource")(function* (
     previous: ReadonlyArray<UsageLimitSourceSnapshot>,
+    force = false,
   ) {
     const cmaReader = yield* Effect.serviceOption(CmaUsageReader.CmaUsageReader);
     if (cmaReader._tag === "None") return undefined;
     const observedAt = yield* DateTime.now;
     const observedAtMs = DateTime.toEpochMillis(observedAt);
     const cached = previous.find((source) => source.id === CMA_SOURCE_ID);
-    const lastReadAtMs = yield* Ref.get(cmaLastReadAtMs);
+    const lastAttemptAtMs = yield* Ref.get(cmaLastAttemptAtMs);
     if (
+      !force &&
       cached !== undefined &&
-      cached.error === undefined &&
-      lastReadAtMs !== undefined &&
-      observedAtMs - lastReadAtMs < CMA_REFRESH_MIN_AGE_MS
+      lastAttemptAtMs !== undefined &&
+      observedAtMs - lastAttemptAtMs < CMA_REFRESH_MIN_AGE_MS
     ) {
       return cached;
     }
     const checkedAt = DateTime.formatIso(observedAt);
     const result = yield* cmaReader.value.read.pipe(Effect.result);
+    yield* Ref.set(cmaLastAttemptAtMs, observedAtMs);
     if (result._tag === "Success") {
-      yield* Ref.set(cmaLastReadAtMs, observedAtMs);
       return cmaSnapshot(checkedAt, result.success);
     }
     return {
@@ -227,7 +228,7 @@ export const make = Effect.gen(function* () {
 
   // Serialize refreshes so slow old-settings reads cannot resurrect removed sources after newer refreshes.
   const refreshLock = yield* Semaphore.make(1);
-  const runRefresh = Effect.gen(function* () {
+  const runRefresh = Effect.fn("UsageLimitSources.runRefresh")(function* (force = false) {
     const settings = yield* settingsService.getSettings.pipe(
       Effect.orElseSucceed((): ServerSettings | null => null),
     );
@@ -240,15 +241,17 @@ export const make = Effect.gen(function* () {
       { concurrency: 4 },
     );
     const previous = yield* Ref.get(stateRef);
-    const cma = yield* readCmaSource(previous);
+    const cma = yield* readCmaSource(previous, force);
     yield* publish(
       keepLastGoodReadings(previous, [...snapshots, ...(cma === undefined ? [] : [cma])]),
     );
-  }).pipe(refreshLock.withPermits(1), Effect.ignoreCause({ log: true }));
+  });
 
   type RefreshCompletion = Deferred.Deferred<void>;
   const refreshInFlightRef = yield* Ref.make<Option.Option<RefreshCompletion>>(Option.none());
-  const refresh = Effect.fn("UsageLimitSources.refresh")(function* () {
+  const refresh = Effect.fn("UsageLimitSources.refresh")(function* (options?: {
+    readonly force?: boolean;
+  }) {
     const claimed = yield* Effect.uninterruptible(
       Ref.modify(
         refreshInFlightRef,
@@ -267,7 +270,9 @@ export const make = Effect.gen(function* () {
       ),
     );
     if (claimed.owner) {
-      yield* runRefresh.pipe(
+      yield* runRefresh(options?.force === true).pipe(
+        refreshLock.withPermits(1),
+        Effect.ignoreCause({ log: true }),
         Effect.onExit((exit) =>
           Ref.set(refreshInFlightRef, Option.none()).pipe(
             Effect.andThen(Deferred.done(claimed.completion, exit)),
@@ -311,7 +316,7 @@ export const make = Effect.gen(function* () {
   yield* settingsService.streamChanges.pipe(
     Stream.map((settings) => settings.usageLimitSources),
     Stream.changes,
-    Stream.runForEach(() => refresh),
+    Stream.runForEach(() => refresh()),
     Effect.forkScoped,
   );
 
@@ -330,12 +335,12 @@ export const make = Effect.gen(function* () {
           ? backgroundPolicy.shouldRunScopeWork({ type: "provider-status" })
           : Effect.succeed(false),
       ),
-      Effect.flatMap((shouldRun) => (shouldRun ? refresh : Effect.void)),
+      Effect.flatMap((shouldRun) => (shouldRun ? refresh() : Effect.void)),
       Effect.ignoreCause({ log: true }),
     ),
   ).pipe(Effect.forkScoped);
 
-  yield* refresh.pipe(Effect.forkScoped);
+  yield* refresh().pipe(Effect.forkScoped);
 
   return {
     current: Ref.get(stateRef),
@@ -409,7 +414,7 @@ export const layerResetFallback = Layer.effect(
         );
         if ((yield* atEndpoint).length === 0) return null;
         // The pool usually ran out after the last poll, so the cached accounts still show room.
-        yield* sources.refresh.pipe(Effect.timeout("5 seconds"), Effect.ignore);
+        yield* sources.refresh().pipe(Effect.timeout("5 seconds"), Effect.ignore);
         return hubPoolResetAt(
           yield* atEndpoint,
           driver,

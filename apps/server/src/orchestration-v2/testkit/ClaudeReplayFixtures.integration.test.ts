@@ -190,7 +190,7 @@ describe("Claude Agent SDK replay fixtures", () => {
                     account("other", driver.modelSelection.model, 100, "2033-05-18T00:00:00.000Z"),
                   ]),
                 ]),
-                refresh: Effect.void,
+                refresh: () => Effect.void,
               }),
             ),
           ),
