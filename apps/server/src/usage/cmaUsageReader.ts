@@ -6,6 +6,7 @@ import * as Schema from "effect/Schema";
 // @effect-diagnostics deterministicKeys:off globalDate:off globalJsonInEffect:off
 
 import * as ProcessRunner from "../processRunner.ts";
+import * as HostProcess from "@t3tools/shared/HostProcess";
 
 export type CmaUsageWindowId = "primary" | "secondary";
 
@@ -295,7 +296,26 @@ const decodeJson = Effect.fn("CmaUsageReader.decodeJson")(function* (
   command: "status" | "subscription",
 ) {
   return yield* Effect.try({
-    try: () => JSON.parse(raw) as unknown,
+    try: () => {
+      const trimmed = raw.trim();
+      try {
+        return JSON.parse(trimmed) as unknown;
+      } catch {
+        const objectStart = trimmed.indexOf("{");
+        const arrayStart = trimmed.indexOf("[");
+        const start =
+          objectStart === -1
+            ? arrayStart
+            : arrayStart === -1
+              ? objectStart
+              : Math.min(objectStart, arrayStart);
+        const objectEnd = trimmed.lastIndexOf("}");
+        const arrayEnd = trimmed.lastIndexOf("]");
+        const end = Math.max(objectEnd, arrayEnd);
+        if (start === -1 || end <= start) throw new Error("No JSON document");
+        return JSON.parse(trimmed.slice(start, end + 1)) as unknown;
+      }
+    },
     catch: () => new CmaProbeFailure({ command, kind: "invalidJson" }),
   });
 });
@@ -311,11 +331,24 @@ const failureKind = (error: ProcessRunner.ProcessRunError): CmaProbeFailureKind 
 
 const make = Effect.gen(function* () {
   const processRunner = yield* ProcessRunner.ProcessRunner;
+  const platform = yield* HostProcess.Platform;
+  const environment = yield* HostProcess.Environment;
+  const cmaInvocation =
+    platform === "win32"
+      ? {
+          command: environment.ComSpec ?? "cmd.exe",
+          prefix: ["/d", "/s", "/c", "codex-multi-auth.cmd"],
+        }
+      : { command: "codex-multi-auth", prefix: [] as ReadonlyArray<string> };
   const runJson = Effect.fn("CmaUsageReader.runJson")(function* (
     command: "status" | "subscription",
   ) {
     const result = yield* processRunner
-      .run({ command: "codex-multi-auth", args: [command, "--json"], timeout: "15 seconds" })
+      .run({
+        command: cmaInvocation.command,
+        args: [...cmaInvocation.prefix, command, "--json"],
+        timeout: "15 seconds",
+      })
       .pipe(Effect.mapError((error) => new CmaProbeFailure({ command, kind: failureKind(error) })));
     if (result.timedOut) return yield* new CmaProbeFailure({ command, kind: "timedOut" });
     if (result.code !== 0) return yield* new CmaProbeFailure({ command, kind: "commandFailed" });

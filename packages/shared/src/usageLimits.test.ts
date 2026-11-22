@@ -277,7 +277,10 @@ describe("pools", () => {
     };
     const accounts = collectLimitAccounts(
       new Map([
-        [EnvironmentId.make("env-a"), { ...laptop, serverConfig: { usageLimitSources: [cma] } }],
+        [
+          EnvironmentId.make("env-a"),
+          { ...laptop, serverConfig: { providers: [], usageLimitSources: [cma] } },
+        ],
       ]),
     );
     expect(accounts).toHaveLength(2);
@@ -318,7 +321,7 @@ describe("pools", () => {
       new Map(
         snapshots.map((snapshot, index) => [
           EnvironmentId.make(`env-${index}`),
-          { ...laptop, serverConfig: { usageLimitSources: [snapshot] } },
+          { ...laptop, serverConfig: { providers: [], usageLimitSources: [snapshot] } },
         ]),
       );
 
@@ -354,7 +357,10 @@ describe("pools", () => {
     };
     const accounts = collectLimitAccounts(
       new Map([
-        [EnvironmentId.make("env-a"), { ...laptop, serverConfig: { usageLimitSources: [cma] } }],
+        [
+          EnvironmentId.make("env-a"),
+          { ...laptop, serverConfig: { providers: [], usageLimitSources: [cma] } },
+        ],
       ]),
     );
     expect(accounts.map((account) => account.key)).toEqual([
