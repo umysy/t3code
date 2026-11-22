@@ -294,7 +294,7 @@ export const normalizeCmaUsage = (
 export const decodeCmaJson = (raw: string): unknown => {
   const trimmed = raw
     .replaceAll("\u0000", "")
-    .replace(/\u001b\[[0-?]*[ -\/]*[@-~]/g, "")
+    .replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, "")
     .trim();
   try {
     return JSON.parse(trimmed) as unknown;
