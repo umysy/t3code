@@ -153,4 +153,65 @@ describe("UsageLimitsPooled ChatGPT usage card", () => {
       "No provider on the selected environments reports subscription limits.",
     );
   });
+
+  it("renders CMA quota chart view for multiple windows", async () => {
+    const presentations = new Map([
+      [
+        EnvironmentId.make("desk"),
+        {
+          entry: { target: { label: "Desk" } },
+          serverConfig: {
+            providers: [],
+            usageLimitSources: [
+              {
+                id: UsageLimitSourceId.make("cma"),
+                kind: "cma" as const,
+                label: "CMA",
+                checkedAt,
+                accounts: [
+                  {
+                    id: "work-account",
+                    driver: ProviderDriverKind.make("codex"),
+                    email: "work@example.com",
+                    enabled: true,
+                    usageLimits: {
+                      checkedAt,
+                      windows: [
+                        {
+                          id: "primary",
+                          kind: "session" as const,
+                          label: "5-hour",
+                          usedPercent: 25,
+                          resetsAt: "2026-10-25T20:00:00.000Z",
+                        },
+                        {
+                          id: "secondary",
+                          kind: "weekly" as const,
+                          label: "7-day",
+                          usedPercent: 50,
+                        },
+                      ],
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      ],
+    ]);
+
+    await using screen = await render(
+      <UsageLimitsPooled
+        presentations={presentations}
+        now={Date.parse(checkedAt)}
+        cmaView="chart"
+      />,
+    );
+
+    await expect.element(screen.getByLabelText("CMA quota chart")).toBeVisible();
+    await expect.element(screen.getByText("75% left")).toBeVisible();
+    await expect.element(screen.getByText("50% left")).toBeVisible();
+    await expect.element(screen.getByText(/Resets 4:00 AM/)).toBeVisible();
+  });
 });

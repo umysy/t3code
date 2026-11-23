@@ -167,10 +167,120 @@ function CmaAccountCard({ account }: { readonly account: LimitAccount }) {
   );
 }
 
+function CmaAccountsChart({ accounts }: { readonly accounts: readonly LimitAccount[] }) {
+  const gt = useGT();
+  const locale = useLocale();
+  const m = useMessages();
+  return (
+    <View className="gap-3">
+      {accounts.map((account) => {
+        const unavailable = account.limits.unavailable !== undefined;
+        const stale = !unavailable && account.sourceError !== undefined;
+        const subscription = account.subscription;
+        const plan =
+          account.plan ??
+          subscription?.planDisplayName ??
+          subscription?.planType ??
+          subscription?.subscriptionPlan;
+        return (
+          <View
+            key={account.key}
+            className="gap-4 rounded-[24px] border-continuous bg-grouped-card p-4"
+          >
+            <View className="flex-row items-start gap-3">
+              <ProviderIcon provider={account.driver} size={22} />
+              <View className="min-w-0 flex-1 gap-1">
+                <Text className="text-base font-t3-medium text-foreground" numberOfLines={1}>
+                  {accountName(account)}
+                </Text>
+                {account.email && account.displayName ? (
+                  <Text className="text-sm text-foreground-muted" numberOfLines={1}>
+                    {account.displayName}
+                  </Text>
+                ) : null}
+              </View>
+              <StateBadge
+                label={
+                  !account.enabled
+                    ? gt("Disabled")
+                    : account.current === true
+                      ? gt("Current")
+                      : account.current === false
+                        ? gt("Not current")
+                        : gt("Current state unknown")
+                }
+                muted={!account.enabled || account.current === false}
+              />
+            </View>
+            {unavailable || stale ? (
+              <View className="rounded-xl border border-warning-border bg-warning px-3 py-2">
+                <Text className="text-sm font-t3-medium text-warning-foreground">
+                  {unavailable ? gt("Unavailable") : gt("Stale")}
+                </Text>
+              </View>
+            ) : null}
+            <View className="flex-row flex-wrap gap-x-4 gap-y-1">
+              <Text className="text-xs text-foreground-muted">
+                {gt("Plan", { $context: "subscription plan" })}: {plan || m(msg("Unknown"))}
+              </Text>
+              <Text className="text-xs text-foreground-muted">
+                {gt("Expires", { $context: "subscription expiry" })}:{" "}
+                {formatCmaTimestamp(cmaSubscriptionExpiry(account), locale) || m(msg("Unknown"))}
+              </Text>
+            </View>
+            <View className="gap-3">
+              {account.limits.windows.length === 0 ? (
+                <Text className="text-sm text-foreground-muted">{gt("No quota windows")}</Text>
+              ) : (
+                account.limits.windows.map((window) => {
+                  const remaining = remainingPercent(window);
+                  return (
+                    <View key={window.id} className="gap-1.5">
+                      <View className="flex-row items-baseline justify-between gap-3">
+                        <Text className="text-sm text-foreground-muted">{window.label}</Text>
+                        <Text className="text-sm font-t3-medium tabular-nums text-foreground">
+                          <T>
+                            <Var>{remaining}</Var>% left
+                          </T>
+                        </Text>
+                      </View>
+                      <View className="h-2 overflow-hidden rounded-full bg-subtle">
+                        <View
+                          className={
+                            remaining <= 10
+                              ? "h-full rounded-full bg-red-500"
+                              : remaining <= 30
+                                ? "h-full rounded-full bg-amber-500"
+                                : "h-full rounded-full bg-foreground"
+                          }
+                          style={{ width: `${remaining}%` }}
+                        />
+                      </View>
+                      <Text className="text-xs text-foreground-muted">
+                        {gt("Resets {time}", {
+                          time: window.resetsAt
+                            ? formatCmaTimestamp(window.resetsAt, locale)
+                            : m(msg("Unknown")),
+                        })}
+                      </Text>
+                    </View>
+                  );
+                })
+              )}
+            </View>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
 export function CmaUsageAccountsSection({
   accounts,
+  view = "text",
 }: {
   readonly accounts: readonly LimitAccount[];
+  readonly view?: CmaUsageView;
 }) {
   const gt = useGT();
   if (accounts.length === 0) return null;
@@ -179,9 +289,13 @@ export function CmaUsageAccountsSection({
       <Text className="px-1 text-base font-t3-medium text-foreground">
         {gt("Codex accounts", { $context: "CMA usage account list" })}
       </Text>
-      {accounts.map((account) => (
-        <CmaAccountCard key={account.key} account={account} />
-      ))}
+      {view === "chart" ? (
+        <CmaAccountsChart accounts={accounts} />
+      ) : (
+        accounts.map((account) => <CmaAccountCard key={account.key} account={account} />)
+      )}
     </View>
   );
 }
+
+export type CmaUsageView = "text" | "chart";

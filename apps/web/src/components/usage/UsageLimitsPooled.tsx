@@ -280,9 +280,11 @@ function CmaAccountCard({
 function CmaAccountsSection({
   accounts,
   now,
+  view,
 }: {
   readonly accounts: readonly LimitAccount[];
   readonly now: number;
+  readonly view: CmaUsageView;
 }) {
   const gt = useGT();
   const cmaAccounts = accounts.filter((account) => account.sourceKind === "cma");
@@ -290,12 +292,140 @@ function CmaAccountsSection({
   return (
     <section className="flex flex-col gap-3">
       <h2 className="text-sm font-medium text-foreground">{gt("CMA accounts")}</h2>
-      <div className="grid gap-3">
-        {cmaAccounts.map((account) => (
-          <CmaAccountCard key={account.key} account={account} now={now} />
-        ))}
-      </div>
+      {view === "chart" ? (
+        <CmaAccountsChart accounts={cmaAccounts} now={now} />
+      ) : (
+        <div className="grid gap-3">
+          {cmaAccounts.map((account) => (
+            <CmaAccountCard key={account.key} account={account} now={now} />
+          ))}
+        </div>
+      )}
     </section>
+  );
+}
+
+export type CmaUsageView = "text" | "chart";
+
+function CmaAccountsChart({
+  accounts,
+  now,
+}: {
+  readonly accounts: readonly LimitAccount[];
+  readonly now: number;
+}) {
+  const gt = useGT();
+  const m = useMessages();
+  const timestampFormat = usePrimarySettings((settings) => settings.timestampFormat);
+  return (
+    <div className="grid gap-3" aria-label={gt("CMA quota chart")}>
+      {accounts.map((account) => {
+        const subscription = account.subscription;
+        const plan =
+          account.plan ??
+          subscription?.planDisplayName ??
+          subscription?.planType ??
+          subscription?.subscriptionPlan;
+        const status = account.sourceError
+          ? gt("Stale")
+          : account.limits.unavailable
+            ? gt("Unavailable")
+            : null;
+        return (
+          <article key={account.key} className="rounded-xl border border-border/60 p-4">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div className="min-w-0">
+                <h3 className="truncate text-sm font-medium text-foreground">
+                  {account.displayName ?? account.key.split(":").at(-1) ?? account.key}
+                </h3>
+                <p className="mt-0.5 text-2xs text-muted-foreground">{account.key}</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5 text-2xs">
+                <span className="rounded-full border px-2 py-0.5">
+                  {account.enabled ? gt("Enabled") : gt("Disabled")}
+                </span>
+                {account.current !== undefined ? (
+                  <span className="rounded-full border px-2 py-0.5">
+                    {account.current ? gt("Current") : gt("Not current")}
+                  </span>
+                ) : null}
+                {status ? (
+                  <span className="rounded-full border border-warning/50 px-2 py-0.5 text-warning">
+                    {status}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+            {account.sourceError ? (
+              <p role="status" className="mt-2 text-xs text-warning-foreground">
+                {account.sourceError}
+              </p>
+            ) : null}
+            <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-2xs text-muted-foreground">
+              <span>
+                {gt("Plan", { $context: "subscription plan" })}: {plan ?? gt("Unknown")}
+              </span>
+              <span>
+                {gt("Expires", { $context: "subscription expiry" })}:{" "}
+                {subscription?.expiresAt
+                  ? formatUpcomingTimestamp(
+                      subscription.expiresAt,
+                      timestampFormat,
+                      now,
+                      undefined,
+                      m,
+                    )
+                  : gt("Unknown")}
+              </span>
+            </div>
+            <div className="mt-4 grid gap-3">
+              {account.limits.windows.length === 0 ? (
+                <p className="text-xs text-muted-foreground">{gt("No quota windows")}</p>
+              ) : (
+                account.limits.windows.map((window) => {
+                  const remaining = remainingPercent(window);
+                  return (
+                    <div key={window.id} className="grid gap-1.5">
+                      <div className="flex items-baseline justify-between gap-3 text-xs">
+                        <span className="text-muted-foreground">{window.label}</span>
+                        <span className="font-medium tabular-nums text-foreground">
+                          {gt("{remaining}% left", { remaining })}
+                        </span>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-muted">
+                        <div
+                          className={
+                            remaining <= 10
+                              ? "h-full rounded-full bg-error"
+                              : remaining <= 30
+                                ? "h-full rounded-full bg-warning"
+                                : "h-full rounded-full bg-foreground"
+                          }
+                          style={{ width: `${remaining}%` }}
+                        />
+                      </div>
+                      {window.resetsAt ? (
+                        <span className="text-2xs text-muted-foreground">
+                          {gt("Resets {time}", {
+                            time: formatUpcomingTimestamp(
+                              window.resetsAt,
+                              timestampFormat,
+                              now,
+                              undefined,
+                              m,
+                            ),
+                          })}
+                        </span>
+                      ) : null}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </article>
+        );
+      })}
+    </div>
   );
 }
 
@@ -841,9 +971,11 @@ function PoolSection({ pool, now }: { readonly pool: LimitPool; readonly now: nu
 export function UsageLimitsPooled({
   presentations,
   now,
+  cmaView = "text",
 }: {
   readonly presentations: Parameters<typeof collectLimitAccounts>[0];
   readonly now: number;
+  readonly cmaView?: CmaUsageView;
 }) {
   const gt = useGT();
   const m = useMessages();
@@ -856,7 +988,7 @@ export function UsageLimitsPooled({
   const externalLinks = collectExternalUsageLinks(presentations, m);
   return (
     <div className="flex flex-col gap-8">
-      <CmaAccountsSection accounts={cmaAccounts} now={now} />
+      <CmaAccountsSection accounts={cmaAccounts} now={now} view={cmaView} />
       {cmaAccounts.length === 0 &&
       pools.length === 0 &&
       notices.length === 0 &&
