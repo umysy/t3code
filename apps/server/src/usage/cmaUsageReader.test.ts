@@ -6,10 +6,10 @@ import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 import * as ProcessRunner from "../processRunner.ts";
 import * as CmaUsageReader from "./cmaUsageReader.ts";
 
-const output = (stdout: string, code = 0) =>
+const output = (stdout: string, code = 0, stderr = "") =>
   ({
     stdout,
-    stderr: "",
+    stderr,
     code: ChildProcessSpawner.ExitCode(code),
     timedOut: false,
     stdoutTruncated: false,
@@ -120,6 +120,32 @@ describe("CMA usage reader", () => {
       expect(error.kind).toBe("invalidJson");
       expect(error.message).not.toContain("secret");
     }).pipe(Effect.provide(readerWith('{"accounts": [} secret-token'))),
+  );
+
+  it.effect("falls back to JSON written to stderr", () =>
+    Effect.gen(function* () {
+      const reader = yield* CmaUsageReader.CmaUsageReader;
+      const accounts = yield* reader.read;
+      expect(accounts[0]?.id).toBe("acct-a");
+    }).pipe(
+      Effect.provide(
+        CmaUsageReader.layer.pipe(
+          Layer.provide(
+            Layer.succeed(ProcessRunner.ProcessRunner, {
+              run: (() => {
+                let call = 0;
+                return (_input: ProcessRunner.ProcessRunInput) =>
+                  Effect.succeed(
+                    call++ === 0
+                      ? output("not-json", 0, JSON.stringify({ accounts: [{ id: "acct-a" }] }))
+                      : output(JSON.stringify({ accounts: [] })),
+                  );
+              })(),
+            }),
+          ),
+        ),
+      ),
+    ),
   );
 
   it("extracts the first JSON document from CLI output", () => {

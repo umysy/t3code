@@ -371,7 +371,10 @@ const make = Effect.gen(function* () {
       .pipe(Effect.mapError((error) => new CmaProbeFailure({ command, kind: failureKind(error) })));
     if (result.timedOut) return yield* new CmaProbeFailure({ command, kind: "timedOut" });
     if (result.code !== 0) return yield* new CmaProbeFailure({ command, kind: "commandFailed" });
-    return decodeJson(result.stdout, command);
+    const stdoutResult = yield* decodeJson(result.stdout, command).pipe(Effect.result);
+    return stdoutResult._tag === "Success"
+      ? stdoutResult.success
+      : yield* decodeJson(result.stderr, command);
   });
 
   const read = Effect.gen(function* () {
