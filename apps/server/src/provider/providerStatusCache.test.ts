@@ -12,6 +12,7 @@ import { hydrateCachedProvider, isCachedProviderCorrelated } from "./providerSta
 
 const emptyCapabilities = createModelCapabilities({ optionDescriptors: [] });
 const CODEX_DRIVER = ProviderDriverKind.make("codex");
+const PI_DRIVER = ProviderDriverKind.make("pi");
 
 const makeProvider = (
   provider: ProviderDriverKind,
@@ -119,6 +120,38 @@ it.layer(NodeServices.layer)("providerStatusCache", (it) => {
         fallbackProvider: fallbackCodex,
       }).models,
       [builtIn],
+    );
+  });
+
+  it("keeps Pi's cached inventory authoritative across an incomplete boot probe", () => {
+    const current = {
+      slug: "openai/gpt-6.1-sol",
+      name: "GPT-6.1-Sol",
+      isCustom: false,
+      capabilities: emptyCapabilities,
+    } as const;
+    const removed = {
+      slug: "openrouter/google/gemini-2.5-pro",
+      name: "Google: Gemini 2.5 Pro",
+      isCustom: false,
+      capabilities: emptyCapabilities,
+    } as const;
+    const custom = {
+      slug: "custom-model",
+      name: "Custom model",
+      isCustom: true,
+      capabilities: emptyCapabilities,
+    } as const;
+    const cachedPi = makeProvider(PI_DRIVER, { models: [current, custom] });
+    const fallbackPi = makeProvider(PI_DRIVER, {
+      status: "warning",
+      auth: { status: "unknown" },
+      models: [removed, custom],
+    });
+
+    assert.deepStrictEqual(
+      hydrateCachedProvider({ cachedProvider: cachedPi, fallbackProvider: fallbackPi }).models,
+      [custom, current],
     );
   });
 

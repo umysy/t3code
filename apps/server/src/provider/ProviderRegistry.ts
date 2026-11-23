@@ -793,9 +793,22 @@ export const layer = Layer.effect(
         yield* manifestService.current.pipe(
           Effect.flatMap(({ updatedAt }) =>
             syncLiveSourcesAndContinue.pipe(
-              Effect.andThen(Ref.get(liveSubsRef)),
+              Effect.andThen(
+                Effect.gen(function* () {
+                  const registeredInstances = yield* instanceRegistry.listInstances;
+                  const liveInstances = yield* Ref.get(liveSubsRef);
+                  const currentLiveInstances = registeredInstances.filter(
+                    (instance) => liveInstances.get(instance.instanceId) === instance,
+                  );
+                  // Reconciliation may briefly retain a replaced or missing subscription.
+                  // The registry is authoritative once syncLiveSourcesAndContinue has completed.
+                  return currentLiveInstances.length > 0
+                    ? currentLiveInstances
+                    : registeredInstances;
+                }),
+              ),
               Effect.flatMap((instances) =>
-                Effect.forEach(instances.values(), (instance) => refreshOneSource(instance), {
+                Effect.forEach(instances, (instance) => refreshOneSource(instance), {
                   concurrency: "unbounded",
                   discard: true,
                 }),
@@ -1319,7 +1332,13 @@ export const layer = Layer.effect(
         if ((yield* Ref.get(probedManifestUpdatedAt)) === updatedAt) return;
         // A new model usually ships with the CLI release that supports it.
         yield* latestVersions.invalidateAll;
-        yield* refreshAll();
+        yield* syncLiveSourcesAndContinue;
+        const instances = yield* instanceRegistry.listInstances;
+        yield* Effect.forEach(instances, refreshOneSource, {
+          concurrency: "unbounded",
+          discard: true,
+        });
+        yield* Ref.set(probedManifestUpdatedAt, updatedAt);
       }
     });
 

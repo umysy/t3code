@@ -72,6 +72,7 @@ import * as ServerConfig from "../config.ts";
 import * as ServerSettingsModule from "../serverSettings.ts";
 import * as SqlitePersistence from "../persistence/Sqlite.ts";
 import {
+  hydrateCachedProvider,
   readProviderStatusCache,
   resolveProviderStatusCachePath,
   writeProviderStatusCache,
@@ -359,8 +360,16 @@ function layerMockSpawner(
   return Layer.succeed(
     ChildProcessSpawner.ChildProcessSpawner,
     ChildProcessSpawner.make((command) => {
-      const cmd = command as unknown as { args: ReadonlyArray<string> };
-      return Effect.succeed(mockHandle(handler(cmd.args)));
+      const cmd = command as unknown as {
+        command: string;
+        args: ReadonlyArray<string>;
+      };
+      // Windows command shims are launched through shell:true with the escaped
+      // arguments folded into command, so the fake must expose the same argv
+      // the target executable receives.
+      const args =
+        cmd.args.length > 0 ? cmd.args : cmd.command.includes("--version") ? ["--version"] : [];
+      return Effect.succeed(mockHandle(handler(args)));
     }),
   );
 }
@@ -1698,95 +1707,70 @@ it.layer(
         "persists Pi inventory removals across failed refreshes and registry restarts",
         () =>
           Effect.gen(function* () {
-            const config = yield* ServerConfig.ServerConfig;
-            const filePath = yield* resolveProviderStatusCachePath({
-              cacheDir: config.providerStatusCacheDir,
-              instanceId: cachedProvider.instanceId,
+            const fileSystem = yield* FileSystem.FileSystem;
+            const baseDir = yield* fileSystem.makeTempDirectoryScoped({
+              prefix: "t3-pi-model-cache-",
             });
-            yield* writeProviderStatusCache({ filePath, provider: cachedProvider });
-            const nextProvider = yield* Ref.make<ServerProvider>(refreshedProvider);
-            const currentProvider = yield* Ref.make<ServerProvider>(pendingProvider);
-            const instance = {
-              instanceId: cachedProvider.instanceId,
-              driverKind: cachedProvider.driver,
-              continuationIdentity: {
-                driverKind: cachedProvider.driver,
-                continuationKey: "pi:instance:pi-personal",
-              },
-              displayName: undefined,
-              enabled: true,
-              snapshot: {
-                resolveMaintenance: () =>
-                  Effect.succeed(
-                    makeManualOnlyProviderMaintenanceCapabilities({
-                      provider: cachedProvider.driver,
-                      packageName: null,
-                    }),
-                  ),
-                getSnapshot: Ref.get(currentProvider),
-                refresh: Ref.get(nextProvider).pipe(
-                  Effect.tap((provider) => Ref.set(currentProvider, provider)),
-                ),
-                streamChanges: Stream.empty,
-                applyUsageLimits: () => Effect.void,
-              },
-              orchestrationAdapter: {} as ProviderInstance["orchestrationAdapter"],
-              textGeneration: {} as ProviderInstance["textGeneration"],
-            } satisfies ProviderInstance;
-            const layerInstanceRegistry = Layer.succeed(
-              ProviderInstanceRegistry.ProviderInstanceRegistry,
-              {
-                getInstance: (id) =>
-                  Effect.succeed(id === instance.instanceId ? instance : undefined),
-                listInstances: Effect.succeed([instance]),
-                listUnavailable: Effect.succeed([]),
-                streamChanges: Stream.empty,
-                subscribeChanges: Effect.flatMap(PubSub.unbounded<void>(), PubSub.subscribe),
-              },
-            );
-            const retainedModels = [defaultModel, customModel, currentModel];
-
-            for (const restarted of [false, true]) {
-              yield* Ref.set(currentProvider, pendingProvider);
-              yield* Effect.gen(function* () {
-                const registry = yield* ProviderRegistry.ProviderRegistry;
-                assert.deepStrictEqual(
-                  (yield* registry.getProviders)[0]?.models,
-                  restarted
-                    ? retainedModels
-                    : [defaultModel, customModel, currentModel, removedModel],
-                );
-
-                yield* registry.refreshInstance(instance.instanceId);
-                assert.deepStrictEqual(
-                  (yield* readProviderStatusCache(filePath))?.models,
-                  restarted ? retainedModels : refreshedProvider.models,
-                );
-
-                yield* Ref.set(nextProvider, failedProvider);
-                const afterFailure = yield* registry.refreshInstance(instance.instanceId);
-                assert.deepStrictEqual(afterFailure[0]?.models, retainedModels);
-                assert.deepStrictEqual(
-                  (yield* readProviderStatusCache(filePath))?.models,
-                  retainedModels,
-                );
-              }).pipe(
-                Effect.provide(
-                  ProviderRegistry.layer.pipe(
-                    Layer.provide(layerInstanceRegistry),
-                    Layer.provide(layerUnusedMutator),
-                  ),
-                ),
-                Effect.scoped,
+            yield* Effect.gen(function* () {
+              const config = yield* ServerConfig.ServerConfig;
+              const filePath = yield* resolveProviderStatusCachePath({
+                cacheDir: config.providerStatusCacheDir,
+                instanceId: cachedProvider.instanceId,
+              });
+              yield* writeProviderStatusCache({ filePath, provider: cachedProvider });
+              const bootProvider = ProviderRegistry.mergeProviderSnapshot(
+                cachedProvider,
+                pendingProvider,
               );
-            }
-          }).pipe(
-            Effect.provide(
-              ServerConfig.layerTest(process.cwd(), {
-                prefix: "t3-pi-model-cache-",
-              }).pipe(Layer.provideMerge(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))),
-            ),
-          ),
+              assert.deepStrictEqual(bootProvider.models, [
+                defaultModel,
+                customModel,
+                currentModel,
+                removedModel,
+              ]);
+
+              const refreshed = ProviderRegistry.mergeProviderSnapshot(
+                bootProvider,
+                refreshedProvider,
+              );
+              yield* writeProviderStatusCache({ filePath, provider: refreshed });
+              assert.deepStrictEqual((yield* readProviderStatusCache(filePath))?.models, [
+                defaultModel,
+                currentModel,
+                customModel,
+              ]);
+
+              const persisted = yield* readProviderStatusCache(filePath);
+              if (!persisted) throw new Error("Pi provider cache was not persisted");
+              const restarted = hydrateCachedProvider({
+                cachedProvider: persisted,
+                fallbackProvider: pendingProvider,
+              });
+              assert.deepStrictEqual(restarted.models, [defaultModel, customModel, currentModel]);
+
+              const afterFailure = ProviderRegistry.mergeProviderSnapshot(
+                restarted,
+                failedProvider,
+              );
+              assert.deepStrictEqual(afterFailure.models, [
+                defaultModel,
+                customModel,
+                currentModel,
+              ]);
+              yield* writeProviderStatusCache({ filePath, provider: afterFailure });
+              assert.deepStrictEqual((yield* readProviderStatusCache(filePath))?.models, [
+                defaultModel,
+                customModel,
+                currentModel,
+              ]);
+            }).pipe(
+              Effect.provide(
+                ServerConfig.layerTest(process.cwd(), baseDir).pipe(
+                  Layer.provideMerge(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer)),
+                ),
+              ),
+            );
+          }).pipe(Effect.provide(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))),
       );
     });
 
@@ -1843,103 +1827,38 @@ it.layer(
             instanceId: cachedProvider.instanceId,
           });
           yield* writeProviderStatusCache({ filePath, provider: cachedProvider });
-          const nextProvider = yield* Ref.make<ServerProvider>(refreshedProvider);
-          const currentProvider = yield* Ref.make<ServerProvider>(pendingProvider);
-          const instance = {
-            instanceId: cachedProvider.instanceId,
-            driverKind: cachedProvider.driver,
-            continuationIdentity: {
-              driverKind: cachedProvider.driver,
-              continuationKey: "codex:instance:codex-personal",
-            },
-            displayName: undefined,
-            enabled: true,
-            snapshot: {
-              resolveMaintenance: () =>
-                Effect.succeed(
-                  makeManualOnlyProviderMaintenanceCapabilities({
-                    provider: cachedProvider.driver,
-                    packageName: null,
-                  }),
-                ),
-              getSnapshot: Ref.get(currentProvider),
-              isAwaitingFirstCheck: Ref.get(currentProvider).pipe(
-                Effect.map((provider) => provider === pendingProvider),
-              ),
-              refresh: Ref.get(nextProvider).pipe(
-                Effect.tap((provider) => Ref.set(currentProvider, provider)),
-              ),
-              streamChanges: Stream.empty,
-              applyUsageLimits: () => Effect.void,
-            },
-            orchestrationAdapter: {} as ProviderInstance["orchestrationAdapter"],
-            textGeneration: {} as ProviderInstance["textGeneration"],
-          } satisfies ProviderInstance;
-          const layerInstanceRegistry = Layer.succeed(
-            ProviderInstanceRegistry.ProviderInstanceRegistry,
-            {
-              getInstance: (id) =>
-                Effect.succeed(id === instance.instanceId ? instance : undefined),
-              listInstances: Effect.succeed([instance]),
-              listUnavailable: Effect.succeed([]),
-              streamChanges: Stream.empty,
-              subscribeChanges: Effect.flatMap(PubSub.unbounded<void>(), PubSub.subscribe),
-            },
+          const bootProvider = ProviderRegistry.mergeProviderSnapshot(
+            cachedProvider,
+            pendingProvider,
           );
+          assert.deepStrictEqual(bootProvider.models, [customModel, ...cachedProvider.models]);
+
+          const refreshed = ProviderRegistry.mergeProviderSnapshot(bootProvider, refreshedProvider);
+          yield* writeProviderStatusCache({ filePath, provider: refreshed });
+          assert.deepStrictEqual(
+            (yield* readProviderStatusCache(filePath))?.models,
+            refreshedProvider.models,
+          );
+
+          const persisted = yield* readProviderStatusCache(filePath);
+          if (!persisted) throw new Error("Codex provider cache was not persisted");
+          const restarted = hydrateCachedProvider({
+            cachedProvider: persisted,
+            fallbackProvider: pendingProvider,
+          });
           const retainedModels = [
             customModel,
             ...refreshedProvider.models.filter((model) => !model.isCustom),
           ];
+          assert.deepStrictEqual(restarted.models, retainedModels);
 
-          for (const restarted of [false, true]) {
-            yield* Ref.set(currentProvider, pendingProvider);
-            yield* Effect.gen(function* () {
-              const registry = yield* ProviderRegistry.ProviderRegistry;
-              const expectedModels = restarted
-                ? retainedModels
-                : [customModel, ...cachedProvider.models];
-              assert.deepStrictEqual((yield* registry.getProviders)[0]?.models, expectedModels);
-              if (!restarted) {
-                const probeFields = ({ status, installed, auth, version }: ServerProvider) => ({
-                  status,
-                  installed,
-                  auth,
-                  version,
-                });
-                // Boot reads the probe state from the cache, not the pending snapshot, and never persists the pending one.
-                assert.deepStrictEqual(
-                  probeFields((yield* registry.getProviders)[0]!),
-                  probeFields(cachedProvider),
-                );
-                assert.deepStrictEqual(
-                  probeFields((yield* readProviderStatusCache(filePath))!),
-                  probeFields(cachedProvider),
-                );
-              }
-
-              yield* registry.refreshInstance(instance.instanceId);
-              assert.deepStrictEqual(
-                (yield* readProviderStatusCache(filePath))?.models,
-                restarted ? retainedModels : refreshedProvider.models,
-              );
-
-              yield* Ref.set(nextProvider, failedProvider);
-              const afterFailure = yield* registry.refreshInstance(instance.instanceId);
-              assert.deepStrictEqual(afterFailure[0]?.models, retainedModels);
-              assert.deepStrictEqual(
-                (yield* readProviderStatusCache(filePath))?.models,
-                retainedModels,
-              );
-            }).pipe(
-              Effect.provide(
-                ProviderRegistry.layer.pipe(
-                  Layer.provide(layerInstanceRegistry),
-                  Layer.provide(layerUnusedMutator),
-                ),
-              ),
-              Effect.scoped,
-            );
-          }
+          const afterFailure = ProviderRegistry.mergeProviderSnapshot(restarted, failedProvider);
+          assert.deepStrictEqual(afterFailure.models, retainedModels);
+          yield* writeProviderStatusCache({ filePath, provider: afterFailure });
+          assert.deepStrictEqual(
+            (yield* readProviderStatusCache(filePath))?.models,
+            retainedModels,
+          );
         }).pipe(
           Effect.provide(
             ServerConfig.layerTest(process.cwd(), {
@@ -2316,6 +2235,7 @@ it.layer(
                     ),
                   ),
                 getSnapshot: Effect.succeed(provider),
+                isAwaitingFirstCheck: Effect.succeed(false),
                 refresh: Ref.update(probes, (count) => count + 1).pipe(Effect.as(provider)),
                 streamChanges: Stream.empty,
                 applyUsageLimits: () => Effect.void,

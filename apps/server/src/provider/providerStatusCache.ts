@@ -1,5 +1,6 @@
 import {
   type ProviderInstanceId,
+  ProviderDriverKind,
   type ServerProvider,
   ServerProvider as ServerProviderSchema,
 } from "@t3tools/contracts";
@@ -23,6 +24,19 @@ const mergeProviderModels = (
   // Settings already supply current custom models; cached rows could resurrect removed ones.
   return [
     ...fallbackModels,
+    ...cachedModels.filter((model) => !model.isCustom && !fallbackSlugs.has(model.slug)),
+  ];
+};
+
+const mergePiProviderModels = (
+  fallbackModels: ReadonlyArray<ServerProvider["models"][number]>,
+  cachedModels: ReadonlyArray<ServerProvider["models"][number]>,
+): ReadonlyArray<ServerProvider["models"][number]> => {
+  const cachedSlugs = new Set(cachedModels.map((model) => model.slug));
+  const fallbackSlugs = new Set(fallbackModels.map((model) => model.slug));
+  return [
+    ...fallbackModels.filter((model) => !model.isCustom && cachedSlugs.has(model.slug)),
+    ...fallbackModels.filter((model) => model.isCustom),
     ...cachedModels.filter((model) => !model.isCustom && !fallbackSlugs.has(model.slug)),
   ];
 };
@@ -77,9 +91,13 @@ export const hydrateCachedProvider = (input: {
   }
 
   const { message: _fallbackMessage, ...fallbackWithoutMessage } = input.fallbackProvider;
+  const models =
+    input.cachedProvider.driver === ProviderDriverKind.make("pi")
+      ? mergePiProviderModels(input.fallbackProvider.models, input.cachedProvider.models)
+      : mergeProviderModels(input.fallbackProvider.models, input.cachedProvider.models);
   const hydratedProvider: ServerProvider = {
     ...fallbackWithoutMessage,
-    models: mergeProviderModels(input.fallbackProvider.models, input.cachedProvider.models),
+    models,
     installed: input.cachedProvider.installed,
     version: input.cachedProvider.version,
     status: input.cachedProvider.status,
