@@ -29,7 +29,12 @@ import {
 import { ensureLocalApi } from "../../localApi";
 import { usePrimarySettings } from "../../hooks/useSettings";
 import { cn } from "../../lib/utils";
-import { formatUpcomingTimestamp } from "../../timestampFormat";
+import type { TimestampFormat } from "@t3tools/contracts/settings";
+import {
+  formatFullTimestamp,
+  formatUpcomingTimestamp,
+  parseTimestampDate,
+} from "../../timestampFormat";
 import { ProviderInstanceIcon } from "../chat/ProviderInstanceIcon";
 import { providerClients } from "../settings/providerDriverMeta";
 import { RedactedSensitiveText } from "../settings/RedactedSensitiveText";
@@ -137,6 +142,16 @@ function CmaValue({ value }: { readonly value: string | boolean | undefined }) {
   if (value === undefined) return <span className="text-muted-foreground">{gt("Unknown")}</span>;
   if (typeof value === "boolean") return value ? gt("Yes") : gt("No");
   return value;
+}
+
+// Subscription dates are calendar days, so unlike reset times they must never collapse to time-only.
+function formatCmaDate(
+  isoDate: string | undefined,
+  timestampFormat: TimestampFormat,
+): string | undefined {
+  return isoDate && parseTimestampDate(isoDate)
+    ? formatFullTimestamp(isoDate, timestampFormat)
+    : undefined;
 }
 
 function CmaRow({ label, children }: { readonly label: string; readonly children: ReactNode }) {
@@ -247,18 +262,10 @@ function CmaAccountCard({
           )}
         </CmaRow>
         <CmaRow label={gt("Subscription expiry")}>
-          {subscription?.expiresAt ? (
-            formatUpcomingTimestamp(subscription.expiresAt, timestampFormat, now, undefined, m)
-          ) : (
-            <CmaValue value={undefined} />
-          )}
+          <CmaValue value={formatCmaDate(subscription?.expiresAt, timestampFormat)} />
         </CmaRow>
         <CmaRow label={gt("Renewal time")}>
-          {subscription?.renewsAt ? (
-            formatUpcomingTimestamp(subscription.renewsAt, timestampFormat, now, undefined, m)
-          ) : (
-            <CmaValue value={undefined} />
-          )}
+          <CmaValue value={formatCmaDate(subscription?.renewsAt, timestampFormat)} />
         </CmaRow>
         <CmaRow label={gt("Renewal status")}>
           {subscription?.willRenew === undefined ? (
@@ -367,15 +374,7 @@ function CmaAccountsChart({
               </span>
               <span>
                 {gt("Expires", { $context: "subscription expiry" })}:{" "}
-                {subscription?.expiresAt
-                  ? formatUpcomingTimestamp(
-                      subscription.expiresAt,
-                      timestampFormat,
-                      now,
-                      undefined,
-                      m,
-                    )
-                  : gt("Unknown")}
+                {formatCmaDate(subscription?.expiresAt, timestampFormat) ?? gt("Unknown")}
               </span>
             </div>
             <div className="mt-4 grid gap-3">

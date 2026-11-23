@@ -89,7 +89,7 @@ describe("UsageLimitsPooled ChatGPT usage card", () => {
                     current: true,
                     subscription: {
                       planDisplayName: "ChatGPT Pro",
-                      expiresAt: "2026-12-31T00:00:00.000Z",
+                      expiresAt: "2026-10-25T16:30:00.000Z",
                       renewsAt: "2027-01-01T00:00:00.000Z",
                       willRenew: true,
                     },
@@ -152,6 +152,8 @@ describe("UsageLimitsPooled ChatGPT usage card", () => {
     expect(screen.container.textContent).not.toContain(
       "No provider on the selected environments reports subscription limits.",
     );
+    // An expiry on the same day as `now` must still show its date, not just a time.
+    expect(screen.container.textContent).toMatch(/Subscription expiry[^A-Za-z]*2026/);
   });
 
   it("renders CMA quota chart view for multiple windows", async () => {
