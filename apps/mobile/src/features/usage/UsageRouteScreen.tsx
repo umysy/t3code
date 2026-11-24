@@ -46,6 +46,7 @@ import { UsageDailyChart } from "./UsageDailyChart";
 import { toggleUsageEnvironment } from "./usageEnvironmentSelection";
 import { useRefreshLimits } from "./UsageLimitsSection";
 import { UsageLimitsSection } from "./UsageLimitsPooled";
+import type { CmaUsageView } from "./CmaUsageAccounts";
 import type { UsageChartMetric } from "./usageChartData";
 import { PROVIDER_LABEL, useProviderColors, useUsageMixColors } from "./usageProviders";
 
@@ -98,6 +99,10 @@ function UsageScreen(props: {
   const gt = useGT();
   const m = useMessages();
   const viewOptions = VIEW_OPTIONS.map((option) => ({ ...option, label: m(option.label) }));
+  const cmaViewOptions = [
+    { value: "text" as const, label: gt("Text") },
+    { value: "chart" as const, label: gt("Chart") },
+  ];
   const windowOptions = WINDOW_OPTIONS.map((option) => ({
     ...option,
     label: m(option.label),
@@ -117,6 +122,7 @@ function UsageScreen(props: {
   }
   const { view } = selection;
   const setView = (view: UsageView) => setSelection({ params: props.tabParam, view });
+  const [cmaView, setCmaView] = useState<CmaUsageView>("text");
   const [measuredWidth, setWidth] = useState(0);
   // A workspace pane knows its width in the render that resizes it; measuring lags a frame.
   const width = useWorkspaceSettledContentWidth() ?? measuredWidth;
@@ -303,12 +309,22 @@ function UsageScreen(props: {
               className="gap-6"
             >
               {showingLimits ? (
-                <UsageLimitsSection
-                  now={limits.now}
-                  failedLabels={limits.failedLabels}
-                  selectedEnvironmentIds={selectedEnvironmentIds}
-                  wide={wide}
-                />
+                <>
+                  <SegmentedControl
+                    options={cmaViewOptions}
+                    selected={cmaView}
+                    onSelect={setCmaView}
+                    size="compact"
+                    role="tab"
+                  />
+                  <UsageLimitsSection
+                    now={limits.now}
+                    failedLabels={limits.failedLabels}
+                    selectedEnvironmentIds={selectedEnvironmentIds}
+                    wide={wide}
+                    cmaView={cmaView}
+                  />
+                </>
               ) : (
                 <>
                   {wide ? null : (

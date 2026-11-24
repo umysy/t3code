@@ -21,8 +21,220 @@ import { HttpClient, HttpClientResponse } from "effect/http";
 import * as BackgroundPolicy from "../background/BackgroundPolicy.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import * as UsageLimitSources from "./UsageLimitSources.ts";
+import * as CmaUsageReader from "./cmaUsageReader.ts";
 
 const encodeConfigEvent = Schema.encodeSync(ServerConfigStreamEvent);
+
+it.effect("coalesces CMA refreshes and keeps a successful snapshot for five minutes", () => {
+  let reads = 0;
+  return Effect.gen(function* () {
+    yield* TestClock.setTime(Date.parse("2026-11-21T00:00:00.000Z"));
+    const sources = yield* UsageLimitSources.make;
+    yield* sources.refresh;
+    yield* sources.refresh;
+    expect(reads).toBe(1);
+    yield* TestClock.adjust("5 minutes");
+    yield* sources.refresh;
+    expect(reads).toBe(2);
+    yield* sources.refresh;
+    expect(reads).toBe(2);
+  }).pipe(
+    Effect.provide([
+      ServerSettings.layerTest({ usageLimitSources: {} }),
+      Layer.mock(BackgroundPolicy.BackgroundPolicy)({
+        shouldRunScopeWork: () => Effect.succeed(false),
+      }),
+      Layer.succeed(SecretResolver.SecretResolver, {
+        label: (provider) => Effect.succeed(provider),
+        read: (references) => Effect.succeed(references.map(() => undefined)),
+        invalidate: () => Effect.void,
+      }),
+      Layer.succeed(
+        HttpClient.HttpClient,
+        HttpClient.make(() => Effect.die("Unexpected network request")),
+      ),
+      NodeCrypto.layer,
+      Layer.succeed(CmaUsageReader.CmaUsageReader, {
+        read: Effect.sync(() => {
+          reads += 1;
+          return [
+            {
+              id: "account-a",
+              enabled: true,
+              quota: { checkedAt: "2026-11-21T00:00:00.000Z", windows: [] },
+            },
+          ];
+        }),
+      }),
+    ]),
+  );
+});
+
+it.effect("throttles repeated failed CMA reads for five minutes", () => {
+  let reads = 0;
+  return Effect.gen(function* () {
+    yield* TestClock.setTime(Date.parse("2026-11-21T00:00:00.000Z"));
+    const sources = yield* UsageLimitSources.make;
+    yield* sources.refresh;
+    yield* sources.refresh;
+    expect(reads).toBe(1);
+    yield* TestClock.adjust("5 minutes");
+    yield* sources.refresh;
+    expect(reads).toBe(2);
+  }).pipe(
+    Effect.provide([
+      ServerSettings.layerTest({ usageLimitSources: {} }),
+      Layer.mock(BackgroundPolicy.BackgroundPolicy)({
+        shouldRunScopeWork: () => Effect.succeed(false),
+      }),
+      Layer.succeed(SecretResolver.SecretResolver, {
+        label: (provider) => Effect.succeed(provider),
+        read: (references) => Effect.succeed(references.map(() => undefined)),
+        invalidate: () => Effect.void,
+      }),
+      Layer.succeed(
+        HttpClient.HttpClient,
+        HttpClient.make(() => Effect.die("Unexpected network request")),
+      ),
+      NodeCrypto.layer,
+      Layer.succeed(CmaUsageReader.CmaUsageReader, {
+        read: Effect.suspend(() => {
+          reads += 1;
+          return Effect.fail(
+            new CmaUsageReader.CmaProbeFailure({
+              command: "status",
+              kind: "commandFailed",
+            }),
+          );
+        }),
+      }),
+    ]),
+  );
+});
+
+it.effect("publishes the built-in CMA snapshot with disabled accounts visible", () =>
+  Effect.gen(function* () {
+    const sources = yield* UsageLimitSources.make;
+    yield* sources.refresh;
+    const cma = (yield* sources.current).find((source) => source.kind === "cma");
+    expect(cma).toMatchObject({
+      id: "cma",
+      kind: "cma",
+      accounts: [
+        {
+          id: "account-a",
+          driver: "codex",
+          enabled: true,
+          subscription: { planDisplayName: "ChatGPT Plus", expiresAt: "2027-01-02T03:04:05.000Z" },
+          usageLimits: {
+            windows: [
+              { id: "primary", label: "7-hour", usedPercent: 12, windowDurationMins: 420 },
+              { id: "secondary", label: "7-day", usedPercent: 34, windowDurationMins: 10080 },
+            ],
+          },
+        },
+        { id: "account-b", enabled: false },
+        {
+          id: "account-c",
+          email: "c@example.test",
+          enabled: true,
+          current: false,
+          subscription: { planDisplayName: "ChatGPT Pro", expiresAt: "2027-06-15T03:04:05.000Z" },
+          usageLimits: {
+            windows: [
+              { id: "primary", label: "5-hour", usedPercent: 48, windowDurationMins: 300 },
+              { id: "secondary", label: "7-day", usedPercent: 61, windowDurationMins: 10080 },
+            ],
+          },
+        },
+      ],
+    });
+  }).pipe(
+    Effect.provide([
+      ServerSettings.layerTest({ usageLimitSources: {} }),
+      Layer.mock(BackgroundPolicy.BackgroundPolicy)({
+        shouldRunScopeWork: () => Effect.succeed(false),
+      }),
+      Layer.succeed(SecretResolver.SecretResolver, {
+        label: (provider) => Effect.succeed(provider),
+        read: (references) => Effect.succeed(references.map(() => undefined)),
+        invalidate: () => Effect.void,
+      }),
+      Layer.succeed(
+        HttpClient.HttpClient,
+        HttpClient.make(() => Effect.die("Unexpected network request")),
+      ),
+      NodeCrypto.layer,
+      Layer.succeed(CmaUsageReader.CmaUsageReader, {
+        read: Effect.succeed<ReadonlyArray<CmaUsageReader.CmaUsageAccount>>([
+          {
+            id: "account-a",
+            email: "a@example.test",
+            enabled: true,
+            plan: "ChatGPT Plus",
+            subscription: {
+              planDisplayName: "ChatGPT Plus",
+              expiresAt: "2027-01-02T03:04:05.000Z",
+            },
+            quota: {
+              checkedAt: "2026-11-21T00:00:00.000Z",
+              windows: [
+                {
+                  id: "primary",
+                  label: "7-hour",
+                  usedPercent: 12,
+                  windowMinutes: 420,
+                  resetsAt: "2026-11-21T07:00:00.000Z",
+                },
+                {
+                  id: "secondary",
+                  label: "7-day",
+                  usedPercent: 34,
+                  windowMinutes: 10080,
+                  resetsAt: "2026-11-28T00:00:00.000Z",
+                },
+              ],
+            },
+          },
+          {
+            id: "account-b",
+            enabled: false,
+            quota: { checkedAt: "2026-11-21T00:00:00.000Z", windows: [] },
+          },
+          {
+            id: "account-c",
+            email: "c@example.test",
+            enabled: true,
+            current: false,
+            subscription: {
+              planDisplayName: "ChatGPT Pro",
+              expiresAt: "2027-06-15T03:04:05.000Z",
+            },
+            quota: {
+              checkedAt: "2026-11-21T00:00:00.000Z",
+              windows: [
+                {
+                  id: "primary",
+                  label: "5-hour",
+                  usedPercent: 48,
+                  windowMinutes: 300,
+                  resetsAt: "2026-11-21T05:00:00.000Z",
+                },
+                {
+                  id: "secondary",
+                  label: "7-day",
+                  usedPercent: 61,
+                  windowMinutes: 10080,
+                  resetsAt: "2026-11-28T00:00:00.000Z",
+                },
+              ],
+            },
+          },
+        ]),
+      }),
+    ]),
+  ),
+);
 
 it.effect("keeps malformed source URLs encodable for config subscribers", () =>
   Effect.gen(function* () {
@@ -247,6 +459,66 @@ it.effect("reads a management key from its secret provider", () => {
         ),
       ),
       NodeCrypto.layer,
+    ]),
+  );
+});
+
+it.effect("retains the last good CMA snapshot when a later refresh fails", () => {
+  let failed = false;
+  return Effect.gen(function* () {
+    yield* TestClock.setTime(Date.parse("2026-11-21T00:00:00.000Z"));
+    const sources = yield* UsageLimitSources.make;
+    yield* sources.refresh;
+    const first = (yield* sources.current).find((source) => source.kind === "cma");
+    expect(first?.accounts).toHaveLength(1);
+
+    failed = true;
+    yield* TestClock.adjust("5 minutes");
+    yield* sources.refresh;
+    const second = (yield* sources.current).find((source) => source.kind === "cma");
+    expect(second?.accounts).toEqual(first?.accounts);
+    expect(second?.error).toBe("codex-multi-auth status failed.");
+  }).pipe(
+    Effect.provide([
+      ServerSettings.layerTest({ usageLimitSources: {} }),
+      Layer.mock(BackgroundPolicy.BackgroundPolicy)({
+        shouldRunScopeWork: () => Effect.succeed(false),
+      }),
+      Layer.succeed(SecretResolver.SecretResolver, {
+        label: (provider) => Effect.succeed(provider),
+        read: (references) => Effect.succeed(references.map(() => undefined)),
+        invalidate: () => Effect.void,
+      }),
+      Layer.succeed(
+        HttpClient.HttpClient,
+        HttpClient.make(() => Effect.die("Unexpected network request")),
+      ),
+      NodeCrypto.layer,
+      Layer.succeed(CmaUsageReader.CmaUsageReader, {
+        read: Effect.suspend(() =>
+          failed
+            ? Effect.fail(
+                new CmaUsageReader.CmaProbeFailure({ command: "status", kind: "commandFailed" }),
+              )
+            : Effect.succeed([
+                {
+                  id: "account-a",
+                  email: "a@example.test",
+                  enabled: true,
+                  quota: {
+                    checkedAt: "2026-11-21T00:00:00.000Z",
+                    windows: [
+                      {
+                        id: "primary" as const,
+                        label: "7-hour" as const,
+                        usedPercent: 20,
+                      },
+                    ],
+                  },
+                },
+              ]),
+        ),
+      }),
     ]),
   );
 });

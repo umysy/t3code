@@ -79,6 +79,7 @@ import {
 } from "../WorkspaceBreadcrumb";
 import { WorkspacePageContainer } from "../WorkspacePageContainer";
 import { UsageLimitsSection } from "./UsageLimits";
+import type { CmaUsageView } from "./UsageLimitsPooled";
 import { UsagePriceOverrides } from "./UsagePriceOverrides";
 import { UsageProviderChart } from "./UsageProviderChart";
 import { SpeedPremium, UsageModelDialog } from "./UsageModelDialog";
@@ -202,6 +203,7 @@ export function UsagePage() {
   }));
   const metric = preferences.metric;
   const showingLimits = metric === "limits";
+  const [limitsView, setLimitsView] = useState<CmaUsageView>("text");
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [limitsNow, setLimitsNow] = useState(() => Date.now());
   const refreshingRef = useRef(false);
@@ -448,6 +450,20 @@ export function UsagePage() {
             </Toggle>
           ))}
         </ToggleGroup>
+        {showingLimits ? (
+          <ToggleGroup
+            aria-label={gt("Limits view")}
+            variant="segmented"
+            value={[limitsView]}
+            onValueChange={(next) => {
+              const value = next[0];
+              if (value === "text" || value === "chart") setLimitsView(value);
+            }}
+          >
+            <Toggle value="text">{gt("Text")}</Toggle>
+            <Toggle value="chart">{gt("Chart")}</Toggle>
+          </ToggleGroup>
+        ) : null}
         <Button
           onClick={refreshWindow}
           aria-label={showingLimits ? gt("Refresh limits") : gt("Refresh usage")}
@@ -505,6 +521,22 @@ export function UsagePage() {
             ))}
           </SelectPopup>
         </Select>
+        {showingLimits ? (
+          <Select
+            value={limitsView}
+            onValueChange={(value) => {
+              if (value === "text" || value === "chart") setLimitsView(value);
+            }}
+          >
+            <SelectTrigger aria-label={gt("Limits view")} size="compact" variant="ghost">
+              <SelectValue>{limitsView === "chart" ? gt("Chart") : gt("Text")}</SelectValue>
+            </SelectTrigger>
+            <SelectPopup align="end" alignItemWithTrigger={false}>
+              <SelectItem value="text">{gt("Text")}</SelectItem>
+              <SelectItem value="chart">{gt("Chart")}</SelectItem>
+            </SelectPopup>
+          </Select>
+        ) : null}
         <Button
           onClick={refreshWindow}
           aria-label={showingLimits ? gt("Refresh limits") : gt("Refresh usage")}
@@ -544,6 +576,7 @@ export function UsagePage() {
                 selectedEnvironmentIds={selectedEnvironmentIds}
                 hiddenProviders={hiddenProviders}
                 now={limitsNow}
+                cmaView={limitsView}
               />
             ) : shown === null ? (
               <UsageSkeleton />
