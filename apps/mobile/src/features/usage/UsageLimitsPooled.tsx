@@ -33,8 +33,8 @@ import { SettingsScreen } from "../settings/components/SettingsScreen";
 import { environmentPresentations } from "../../state/presentation";
 import { refillLabel, ResetCredits, resetLabels } from "./UsageLimitsSection";
 import { usageProviderKind, useProviderColors } from "./usageProviders";
-import { CmaUsageAccountsSection, type CmaUsageView } from "./CmaUsageAccounts";
-import { selectCmaUsageAccounts } from "./CmaUsageAccounts.logic";
+import { CmaUsageAccountsSection } from "../../fork/cma/CmaUsageAccounts";
+import { selectCmaUsageAccounts } from "@t3tools/shared/forkCmaUsage";
 
 const PACE_LABEL = {
   ahead: msg("Ahead of pace"),
@@ -472,13 +472,11 @@ export function UsageLimitsSection({
   failedLabels,
   selectedEnvironmentIds,
   wide = false,
-  cmaView = "text",
 }: {
   readonly now: number;
   readonly failedLabels: readonly string[];
   readonly selectedEnvironmentIds: ReadonlySet<EnvironmentId> | null;
   readonly wide?: boolean;
-  readonly cmaView?: CmaUsageView;
 }) {
   const presentations = useAtomValue(environmentPresentations.presentationsWithProvidersAtom);
   const selected =
@@ -486,8 +484,8 @@ export function UsageLimitsSection({
       ? presentations
       : new Map([...presentations].filter(([id]) => selectedEnvironmentIds.has(id)));
   const accounts = collectLimitAccounts(selected);
-  const pools = collectLimitPools(accounts, now);
   const cmaAccounts = selectCmaUsageAccounts(accounts);
+  const pools = collectLimitPools(accounts, now);
   const m = useMessages();
   const notices = collectLimitNotices(selected, m);
   const externalLinks = collectExternalUsageLinks(selected, m);
@@ -495,7 +493,7 @@ export function UsageLimitsSection({
   const gt = useGT();
   return (
     <View className="gap-6">
-      <CmaUsageAccountsSection accounts={cmaAccounts} view={cmaView} />
+      <CmaUsageAccountsSection accounts={cmaAccounts} />
       {pools.length === 0 &&
       cmaAccounts.length === 0 &&
       notices.length === 0 &&

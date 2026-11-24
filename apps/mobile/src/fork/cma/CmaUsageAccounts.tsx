@@ -4,7 +4,9 @@ import { msg, T, useGT, useLocale, useMessages, Var } from "gt-react-native";
 import { View } from "react-native";
 
 import { AppText as Text } from "../../components/ui/AppText";
+import { SegmentedControl } from "../../components/ui/SegmentedControl";
 import { ProviderIcon } from "../../components/ProviderIcon";
+import { useState } from "react";
 import { cmaSubscriptionExpiry, formatCmaTimestamp } from "./CmaUsageAccounts.logic";
 
 function valueOrUnknown(value: string | undefined, unknown: string): string {
@@ -277,18 +279,29 @@ function CmaAccountsChart({ accounts }: { readonly accounts: readonly LimitAccou
 
 export function CmaUsageAccountsSection({
   accounts,
-  view = "text",
 }: {
   readonly accounts: readonly LimitAccount[];
-  readonly view?: CmaUsageView;
 }) {
   const gt = useGT();
+  const [view, setView] = useState<CmaUsageView>("text");
   if (accounts.length === 0) return null;
   return (
     <View className="gap-3">
-      <Text className="px-1 text-base font-t3-medium text-foreground">
-        {gt("Codex accounts", { $context: "CMA usage account list" })}
-      </Text>
+      <View className="flex-row items-center justify-between gap-3">
+        <Text className="px-1 text-base font-t3-medium text-foreground">
+          {gt("Codex accounts", { $context: "CMA usage account list" })}
+        </Text>
+        <SegmentedControl
+          options={[
+            { value: "text" as const, label: gt("Text") },
+            { value: "chart" as const, label: gt("Chart") },
+          ]}
+          selected={view}
+          onSelect={setView}
+          size="compact"
+          role="tab"
+        />
+      </View>
       {view === "chart" ? (
         <CmaAccountsChart accounts={accounts} />
       ) : (
