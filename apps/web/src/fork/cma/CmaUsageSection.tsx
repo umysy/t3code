@@ -22,7 +22,6 @@ import {
 } from "./CmaUsage.logic";
 
 const CODEX_DRIVER = ProviderDriverKind.make("codex");
-const CODEX_BAR_COLOR = barColor(CODEX_DRIVER);
 
 function CmaValue({ value }: { readonly value: string | boolean | undefined }) {
   const gt = useGT();
@@ -105,11 +104,6 @@ function CmaAccountCard({
   const gt = useGT();
   const m = useMessages();
   const subscription = account.subscription;
-  const plan =
-    account.plan ??
-    subscription?.planDisplayName ??
-    subscription?.planType ??
-    subscription?.subscriptionPlan;
   return (
     <article className="flex flex-col gap-3 rounded-lg border border-border/60 p-4">
       <CmaAccountHeader account={account} />
@@ -120,9 +114,6 @@ function CmaAccountCard({
       ) : null}
 
       <div className="grid gap-x-6 gap-y-1 text-xs md:grid-cols-2">
-        <CmaRow label={gt("Plan", { $context: "subscription plan" })}>
-          <CmaValue value={plan} />
-        </CmaRow>
         <CmaRow label={gt("Observed")}>
           {formatUpcomingTimestamp(account.limits.checkedAt, timestampFormat, now, undefined, m)}
         </CmaRow>
@@ -206,6 +197,8 @@ function CmaAccountsChart({
   const gt = useGT();
   const m = useMessages();
   const timestampFormat = usePrimarySettings((settings) => settings.timestampFormat);
+  // Called in render: at module load the provider table is not initialized yet (import cycle).
+  const codexBarColor = barColor(CODEX_DRIVER);
   return (
     <div className="grid gap-3" aria-label={gt("CMA quota chart")}>
       {accounts.map((account) => (
@@ -254,7 +247,7 @@ function CmaAccountsChart({
                     <div className="h-5 overflow-hidden rounded-md bg-muted">
                       <div
                         className="h-full rounded-md opacity-35"
-                        style={{ width: `${remaining}%`, backgroundColor: CODEX_BAR_COLOR }}
+                        style={{ width: `${remaining}%`, backgroundColor: codexBarColor }}
                       />
                     </div>
                     {window.resetsAt ? (
@@ -320,24 +313,24 @@ export function CmaAccountsSection({
   return (
     <section className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <ProviderInstanceIcon
-            driverKind={CODEX_DRIVER}
-            displayName="Codex"
-            indicatorBackground="var(--background)"
-            className="size-5"
-            iconClassName="size-4 text-foreground/80"
-          />
-          <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <ProviderInstanceIcon
+              driverKind={CODEX_DRIVER}
+              displayName="Codex"
+              indicatorBackground="var(--background)"
+              className="size-5"
+              iconClassName="size-4 text-foreground/80"
+            />
             <h2 className="text-sm font-medium text-foreground">{gt("CMA accounts")}</h2>
-            {readAt ? (
-              <p className="text-2xs text-muted-foreground">
-                {gt("Updated {date}", {
-                  date: formatCmaDate(readAt, timestampFormat) ?? gt("Unknown"),
-                })}
-              </p>
-            ) : null}
           </div>
+          {readAt ? (
+            <p className="text-2xs text-muted-foreground">
+              {gt("Updated {date}", {
+                date: formatCmaDate(readAt, timestampFormat) ?? gt("Unknown"),
+              })}
+            </p>
+          ) : null}
         </div>
         <ToggleGroup
           aria-label={gt("Limits view")}
