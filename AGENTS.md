@@ -155,3 +155,17 @@ Read the matching doc before changing code in that area; code review enforces th
 - No continuously repainting animations; they peg the GPU on high-refresh displays.
 - Security matters, but do not over-index on dev-mode or maintainer-only features. Read [SECURITY.md](SECURITY.md) before auditing or triaging reports.
 - If a rule here fights the task in front of you, say so loudly and get a human sign-off before breaking it.
+
+## Agent skills
+
+### Issue tracker
+
+Issues are tracked as local Markdown files under `.scratch/`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Use the default triage labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, and `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Fork vocabulary lives in `docs/fork/GLOSSARY.md` and fork decisions in `docs/fork/adr/`. See `docs/agents/domain.md`.
