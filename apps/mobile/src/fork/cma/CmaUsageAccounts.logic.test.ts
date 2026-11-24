@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import {
   cmaSubscriptionExpiry,
+  cmaSourceReadAt,
   formatCmaTimestamp,
   selectCmaUsageAccounts,
   shouldShowCmaRefreshHint,
@@ -42,5 +43,11 @@ describe("CMA usage account presentation data", () => {
     expect(
       shouldShowCmaRefreshHint("2026-10-25T16:00:00.000Z", "2026-10-25T16:05:00.000Z", true),
     ).toBe(false);
+  });
+
+  it("uses the CMA source read time for cache hints", () => {
+    expect(cmaSourceReadAt([{ sourceCheckedAt: "2026-10-25T16:00:00.000Z" }])).toBe(
+      "2026-10-25T16:00:00.000Z",
+    );
   });
 });

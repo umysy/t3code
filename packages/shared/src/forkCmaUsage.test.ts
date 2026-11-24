@@ -94,6 +94,7 @@ describe("fork CMA usage aggregation", () => {
     const [account] = accounts;
     expect(account).toMatchObject({
       sourceKind: "cma",
+      sourceCheckedAt: checkedAt,
       sourceError: "codex-multi-auth status failed",
       enabled: false,
       current: true,

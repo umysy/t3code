@@ -427,6 +427,7 @@ export function collectLimitAccounts(presentations: LimitPresentations): readonl
           current: account.current,
           subscription: account.subscription,
           sourceKind: source.kind,
+          sourceCheckedAt: source.checkedAt,
           sourceError: source.error,
           accentColor: undefined,
           environments: [],

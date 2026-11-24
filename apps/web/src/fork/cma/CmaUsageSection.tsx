@@ -9,7 +9,12 @@ import { usePrimarySettings } from "../../hooks/useSettings";
 import { formatUpcomingTimestamp } from "../../timestampFormat";
 import { RedactedSensitiveText } from "../../components/settings/RedactedSensitiveText";
 import { Toggle, ToggleGroup } from "../../components/ui/toggle-group";
-import { cmaReadAt, formatCmaDate, shouldShowCmaRefreshHint } from "./CmaUsage.logic";
+import {
+  cmaReadAt,
+  cmaSourceReadAt,
+  formatCmaDate,
+  shouldShowCmaRefreshHint,
+} from "./CmaUsage.logic";
 
 function CmaValue({ value }: { readonly value: string | boolean | undefined }) {
   const gt = useGT();
@@ -277,25 +282,26 @@ export function CmaAccountsSection({
   const [view, setView] = useState<CmaUsageView>("text");
   const cmaAccounts = selectCmaUsageAccounts(accounts);
   const readAt = cmaReadAt(cmaAccounts);
+  const sourceReadAt = cmaSourceReadAt(cmaAccounts);
   const previousReadAt = useRef<string | undefined>(undefined);
   const hintReadAt = useRef<string | undefined>(undefined);
   const [showRefreshHint, setShowRefreshHint] = useState(false);
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- records the completed manual refresh result while this section is mounted
   useEffect(() => {
     if (manualRefreshPending) {
-      if (previousReadAt.current === undefined) previousReadAt.current = readAt;
+      if (previousReadAt.current === undefined) previousReadAt.current = sourceReadAt;
       return;
     }
     if (previousReadAt.current !== undefined) {
-      const show = shouldShowCmaRefreshHint(previousReadAt.current, readAt, true);
+      const show = shouldShowCmaRefreshHint(previousReadAt.current, sourceReadAt, true);
       setShowRefreshHint(show);
-      hintReadAt.current = show ? readAt : undefined;
+      hintReadAt.current = show ? sourceReadAt : undefined;
       previousReadAt.current = undefined;
-    } else if (showRefreshHint && hintReadAt.current !== readAt) {
+    } else if (showRefreshHint && hintReadAt.current !== sourceReadAt) {
       setShowRefreshHint(false);
       hintReadAt.current = undefined;
     }
-  }, [manualRefreshPending, previousReadAt, readAt, showRefreshHint, hintReadAt]);
+  }, [manualRefreshPending, previousReadAt, sourceReadAt, showRefreshHint, hintReadAt]);
   const timestampFormat = usePrimarySettings((settings) => settings.timestampFormat);
   if (cmaAccounts.length === 0) return null;
   return (

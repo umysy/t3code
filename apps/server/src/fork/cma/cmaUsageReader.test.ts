@@ -112,6 +112,17 @@ describe("CMA usage reader", () => {
     });
   });
 
+  it("falls back when CMA reports a zero length window", () => {
+    const accounts = CmaUsageReader.normalizeCmaUsage(
+      { accounts: [{ id: "acct-a", quota: { secondary: { usedPercent: 10, windowMinutes: 0 } } }] },
+      { accounts: [] },
+      "2023-11-14T22:13:20.000Z",
+    );
+    expect(accounts[0]?.quota.windows).toEqual([
+      { id: "secondary", label: "7-day", usedPercent: 10, windowMinutes: 0 },
+    ]);
+  });
+
   it.effect("reports a typed failure without command output", () =>
     Effect.gen(function* () {
       const reader = yield* CmaUsageReader.CmaUsageReader;

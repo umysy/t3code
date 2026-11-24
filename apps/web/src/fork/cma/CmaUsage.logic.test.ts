@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { formatCmaDate, shouldShowCmaRefreshHint } from "./CmaUsage.logic";
+import { cmaSourceReadAt, formatCmaDate, shouldShowCmaRefreshHint } from "./CmaUsage.logic";
 
 describe("CMA usage formatting", () => {
   it("keeps the calendar date when an expiry is on the current day", () => {
@@ -17,5 +17,14 @@ describe("CMA usage formatting", () => {
     expect(
       shouldShowCmaRefreshHint("2026-10-25T16:00:00.000Z", "2026-10-25T16:00:00.000Z", false),
     ).toBe(false);
+  });
+
+  it("uses the CMA source read time for cache hints", () => {
+    expect(
+      cmaSourceReadAt([
+        { sourceCheckedAt: "2026-10-25T16:00:00.000Z" },
+        { sourceCheckedAt: "2026-10-25T16:05:00.000Z" },
+      ]),
+    ).toBe("2026-10-25T16:05:00.000Z");
   });
 });

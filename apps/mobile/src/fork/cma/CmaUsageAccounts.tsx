@@ -9,6 +9,7 @@ import { ProviderIcon } from "../../components/ProviderIcon";
 import { useEffect, useRef, useState } from "react";
 import {
   cmaReadAt,
+  cmaSourceReadAt,
   cmaSubscriptionExpiry,
   formatCmaTimestamp,
   shouldShowCmaRefreshHint,
@@ -294,25 +295,26 @@ export function CmaUsageAccountsSection({
   const locale = useLocale();
   const m = useMessages();
   const readAt = cmaReadAt(accounts);
+  const sourceReadAt = cmaSourceReadAt(accounts);
   const previousReadAt = useRef<string | undefined>(undefined);
   const hintReadAt = useRef<string | undefined>(undefined);
   const [showRefreshHint, setShowRefreshHint] = useState(false);
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- records the completed manual refresh result while this section is mounted
   useEffect(() => {
     if (manualRefreshPending) {
-      if (previousReadAt.current === undefined) previousReadAt.current = readAt;
+      if (previousReadAt.current === undefined) previousReadAt.current = sourceReadAt;
       return;
     }
     if (previousReadAt.current !== undefined) {
-      const show = shouldShowCmaRefreshHint(previousReadAt.current, readAt, true);
+      const show = shouldShowCmaRefreshHint(previousReadAt.current, sourceReadAt, true);
       setShowRefreshHint(show);
-      hintReadAt.current = show ? readAt : undefined;
+      hintReadAt.current = show ? sourceReadAt : undefined;
       previousReadAt.current = undefined;
-    } else if (showRefreshHint && hintReadAt.current !== readAt) {
+    } else if (showRefreshHint && hintReadAt.current !== sourceReadAt) {
       setShowRefreshHint(false);
       hintReadAt.current = undefined;
     }
-  }, [manualRefreshPending, readAt, showRefreshHint, hintReadAt]);
+  }, [manualRefreshPending, sourceReadAt, showRefreshHint]);
   if (accounts.length === 0) return null;
   return (
     <View className="gap-3">
