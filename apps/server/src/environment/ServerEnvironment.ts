@@ -1,5 +1,7 @@
+// @effect-diagnostics processEnvInEffect:off
 import {
   EnvironmentId,
+  EnvironmentRole,
   ORCHESTRATION_PROTOCOL_VERSION,
   PROVIDER_SEND_TURN_MAX_FILE_BYTES,
   type ExecutionEnvironmentDescriptor,
@@ -26,6 +28,24 @@ import { isSpeechPlatformSupported } from "../speech/platform.ts";
 import { resolveServerEnvironmentLabel } from "./ServerEnvironmentLabel.ts";
 import { detectServerEnvironmentMachineKind } from "./ServerEnvironmentMachine.ts";
 
+const environmentRoleFileName = "environment-role";
+
+const roleFromString = (value: string): EnvironmentRole | undefined => {
+  const normalized = value.trim();
+  return normalized === "development" || normalized === "test" || normalized === "production"
+    ? normalized
+    : undefined;
+};
+
+const defaultEnvironmentRole = (
+  serverConfig: Pick<ServerConfig.ServerConfig["Service"], "devUrl">,
+): EnvironmentRole =>
+  serverConfig.devUrl !== undefined
+    ? "development"
+    : process.env.VITEST === "true"
+      ? "test"
+      : "production";
+
 export class ServerEnvironmentIdPersistenceError extends Schema.TaggedError<ServerEnvironmentIdPersistenceError>()(
   "ServerEnvironmentIdPersistenceError",
   {
@@ -39,6 +59,19 @@ export class ServerEnvironmentIdPersistenceError extends Schema.TaggedError<Serv
       return `Server environment ID file is missing or empty after initialization at '${this.environmentIdPath}'.`;
     }
     return `Server environment ID ${this.operation} failed at '${this.environmentIdPath}'.`;
+  }
+}
+
+export class ServerEnvironmentRoleSafetyError extends Schema.TaggedError<ServerEnvironmentRoleSafetyError>()(
+  "ServerEnvironmentRoleSafetyError",
+  {
+    role: EnvironmentRole,
+    stateDir: Schema.String,
+    liveStateDir: Schema.String,
+  },
+) {
+  override get message(): string {
+    return `The ${this.role} environment cannot use the live T3 state directory '${this.liveStateDir}'. Use an isolated --home-dir or worktree .t3 directory.`;
   }
 }
 
@@ -182,9 +215,45 @@ const makeIdentity = Effect.gen(function* () {
   });
 });
 
+const resolveSafeEnvironmentRole = Effect.fn("ServerEnvironment.resolveSafeEnvironmentRole")(
+  function* (serverConfig: Pick<ServerConfig.ServerConfig["Service"], "stateDir" | "devUrl">) {
+    const path = yield* Path.Path;
+    const fileSystem = yield* FileSystem.FileSystem;
+    const hostPlatform = yield* HostProcess.Platform;
+    const environmentRolePath = path.join(serverConfig.stateDir, environmentRoleFileName);
+    const configuredRole = roleFromString(process.env.T3CODE_ENVIRONMENT_ROLE ?? "");
+    const persistedRole = yield* fileSystem.readFileString(environmentRolePath).pipe(
+      Effect.map((value) => roleFromString(value)),
+      Effect.orElseSucceed(() => undefined),
+    );
+    const environmentRole = configuredRole ?? persistedRole ?? defaultEnvironmentRole(serverConfig);
+    const liveStateDir = path.join(yield* HostProcess.HomeDirectory, ".t3", "userdata");
+    const resolvedStateDir = yield* fileSystem
+      .realPath(serverConfig.stateDir)
+      .pipe(Effect.orElseSucceed(() => path.resolve(serverConfig.stateDir)));
+    const resolvedLiveStateDir = yield* fileSystem
+      .realPath(liveStateDir)
+      .pipe(Effect.orElseSucceed(() => path.resolve(liveStateDir)));
+    const normalize = (value: string) => (hostPlatform === "win32" ? value.toLowerCase() : value);
+    if (
+      environmentRole !== "production" &&
+      (normalize(resolvedStateDir) === normalize(resolvedLiveStateDir) ||
+        normalize(path.resolve(serverConfig.stateDir)) === normalize(path.resolve(liveStateDir)))
+    ) {
+      return yield* new ServerEnvironmentRoleSafetyError({
+        role: environmentRole,
+        stateDir: serverConfig.stateDir,
+        liveStateDir,
+      });
+    }
+    return { environmentRole, persistedRole, environmentRolePath };
+  },
+);
+
 /** @public */
 export const make = Effect.gen(function* () {
   const path = yield* Path.Path;
+  const fileSystem = yield* FileSystem.FileSystem;
   const serverConfig = yield* ServerConfig.ServerConfig;
   const secrets = yield* ServerSecretStore.ServerSecretStore;
   const identity = yield* ServerEnvironmentIdentity;
@@ -192,6 +261,8 @@ export const make = Effect.gen(function* () {
   const hostArchitecture = yield* HostProcess.Architecture;
   const hostLibc = hostPlatform === "linux" ? yield* HostProcess.LinuxLibc : undefined;
   const environmentId = yield* identity.getEnvironmentId;
+  const { environmentRole, persistedRole, environmentRolePath } =
+    yield* resolveSafeEnvironmentRole(serverConfig);
   const cwdBaseName = path.basename(serverConfig.cwd).trim();
   const label = yield* resolveServerEnvironmentLabel({ cwdBaseName });
   const machine = yield* detectServerEnvironmentMachineKind();
@@ -210,6 +281,7 @@ export const make = Effect.gen(function* () {
   const databaseMigration = databaseMigrationHead(serverConfig.dbPath);
   const descriptor: ExecutionEnvironmentDescriptor = {
     environmentId,
+    environmentRole,
     label,
     platform: {
       os: platformOs(hostPlatform),
@@ -306,6 +378,14 @@ export const make = Effect.gen(function* () {
       shellOlderSettled: true,
     },
   };
+  if (persistedRole !== environmentRole) {
+    const tempPath = yield* fileSystem.makeTempFileScoped({
+      directory: serverConfig.stateDir,
+      prefix: ".environment-role-",
+    });
+    yield* fileSystem.writeFileString(tempPath, `${environmentRole}\n`);
+    yield* fileSystem.rename(tempPath, environmentRolePath);
+  }
 
   return ServerEnvironment.of({
     getEnvironmentId: Effect.succeed(environmentId),

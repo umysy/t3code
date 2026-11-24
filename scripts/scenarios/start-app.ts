@@ -126,6 +126,7 @@ const startApp = Effect.fn("startApp")(function* (input: {
     ...hostEnvironment,
     PATH: `${path.join(input.home, "bin")}:${hostEnvironment.PATH ?? ""}`,
     T3CODE_AUTO_BOOTSTRAP_PROJECT_FROM_CWD: "0",
+    T3CODE_ENVIRONMENT_ROLE: "test",
     ...SCENARIO_MACHINE_ENV,
   };
   const devRunner = (mode: string, args: ReadonlyArray<string>) => [
