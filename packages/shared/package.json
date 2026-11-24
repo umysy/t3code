@@ -415,6 +415,10 @@
       "types": "./src/usageLimits.ts",
       "import": "./src/usageLimits.ts"
     },
+    "./forkCmaUsage": {
+      "types": "./src/forkCmaUsage.ts",
+      "import": "./src/forkCmaUsage.ts"
+    },
     "./desktopAppControl": {
       "types": "./src/desktopAppControl.ts",
       "import": "./src/desktopAppControl.ts"
