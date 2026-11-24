@@ -1,6 +1,9 @@
+// @effect-diagnostics nodeBuiltinImport:off globalErrorInEffectCatch:off globalErrorInEffectFailure:off
 /** Stops a dev server whose process tree outgrows a memory limit, so a leak cannot fill RAM and swap. */
 
 import * as NodeOS from "node:os";
+import * as NodeChildProcess from "node:child_process";
+import * as NodeUtil from "node:util";
 
 import * as HostProcess from "@t3tools/shared/HostProcess";
 import * as Effect from "effect/Effect";
@@ -8,6 +11,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Schema from "effect/Schema";
 
 const GiB = 1024 ** 3;
+const execFile = NodeUtil.promisify(NodeChildProcess.execFile);
 
 /** Half of RAM, at most 16 GiB. A fresh bundled-dev server uses about 7 GiB. */
 export const defaultDevMemoryLimitBytes = (totalBytes = NodeOS.totalmem()) =>
@@ -76,18 +80,63 @@ const readProcessTreeBytes = Effect.fn("DevRunner.readProcessTreeBytes")(functio
   return bytes;
 });
 
+const readWindowsProcessTreeBytes = Effect.fn("DevRunner.readWindowsProcessTreeBytes")(function* (
+  rootPid: number,
+) {
+  const script = `
+    $ErrorActionPreference = 'Stop'
+    $RootPid = ${rootPid}
+    $parents = @{}
+    Get-CimInstance Win32_Process -Property ProcessId,ParentProcessId | ForEach-Object {
+      $parent = [int]$_.ParentProcessId
+      if (!$parents.ContainsKey($parent)) { $parents[$parent] = [System.Collections.Generic.List[int]]::new() }
+      $parents[$parent].Add([int]$_.ProcessId)
+    }
+    $ids = New-Object 'System.Collections.Generic.HashSet[int]'
+    $queue = New-Object 'System.Collections.Generic.Queue[int]'
+    $ids.Add($RootPid) | Out-Null
+    $queue.Enqueue($RootPid)
+    $bytes = [int64]0
+    while ($queue.Count -gt 0) {
+      $pidInTree = $queue.Dequeue()
+      try {
+        $process = Get-Process -Id $pidInTree -ErrorAction Stop
+        $bytes += [int64]$process.WorkingSet64 + [int64]$process.PagedMemorySize64
+      } catch {}
+      foreach ($child in $parents[$pidInTree]) {
+        if ($ids.Add($child)) { $queue.Enqueue($child) }
+      }
+    }
+    $bytes
+  `;
+  const result = yield* Effect.tryPromise({
+    try: (signal) =>
+      execFile("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script], {
+        windowsHide: true,
+        timeout: 5000,
+        signal,
+      }),
+    catch: () => new Error("Windows process memory sampling failed."),
+  });
+  const bytes = Number(result.stdout.trim());
+  return bytes;
+});
+
 /**
  * Samples this process and its descendants every 30 seconds and fails once
- * they hold more than `limitBytes` of RAM plus swap. Linux only; elsewhere it
- * never completes.
+ * they hold more than `limitBytes` of RAM plus swap.
  */
 export const enforceDevMemoryLimit = Effect.fn("DevRunner.enforceDevMemoryLimit")(function* (
   limitBytes: number,
 ) {
-  if ((yield* HostProcess.Platform) !== "linux" || limitBytes <= 0) return yield* Effect.never;
+  const platform = yield* HostProcess.Platform;
+  if ((platform !== "linux" && platform !== "win32") || limitBytes <= 0) return yield* Effect.never;
   while (true) {
     yield* Effect.sleep("30 seconds");
-    const usedBytes = yield* readProcessTreeBytes(process.pid);
+    const usedBytes =
+      platform === "linux"
+        ? yield* readProcessTreeBytes(process.pid)
+        : yield* readWindowsProcessTreeBytes(process.pid).pipe(Effect.orElseSucceed(() => 0));
     if (usedBytes > limitBytes) {
       return yield* new DevRunnerMemoryLimitError({ usedBytes, limitBytes });
     }

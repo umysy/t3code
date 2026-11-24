@@ -977,7 +977,7 @@ export const runDevRunnerWithInput = Effect.fn("dev-runner.runDevRunnerWithInput
       exitCode,
     });
   }
-});
+}, Effect.scoped);
 
 const NonNegativeInt = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0));
 
@@ -1055,7 +1055,7 @@ const devRunnerCli = Command.make("dev-runner", {
   memoryLimitGb: Flag.Int("memory-limit-gb").pipe(
     Flag.withSchema(NonNegativeInt),
     Flag.withDescription(
-      "Stop the dev server when it and its child processes use more than this many GiB of RAM plus swap (equivalent to T3CODE_DEV_MEMORY_LIMIT_GB). Defaults to half of RAM, at most 16. 0 turns it off. Linux only.",
+      "Stop the dev server when it and its child processes use more than this many GiB of RAM plus swap (equivalent to T3CODE_DEV_MEMORY_LIMIT_GB). Defaults to half of RAM, at most 16. 0 turns it off. Linux and Windows.",
     ),
     Flag.withFallbackConfig(
       Config.schema(NonNegativeInt, "T3CODE_DEV_MEMORY_LIMIT_GB").pipe(
