@@ -14,7 +14,7 @@ The fork workflows keep `umysy/t3code` aware of stable upstream releases and pro
 
 The version must match `MAJOR.MINOR.PATCH-fork.N`. The `-fork.N` suffix keeps the build on electron-updater's `latest` channel while allowing normal SemVer ordering between fork releases and upstream versions.
 
-The workflow checks out the dispatched ref, installs dependencies with Vite+, and builds an unsigned Windows NSIS installer. The release contains the installer, its blockmap, and `latest.yml`.
+The workflow checks out the dispatched ref, installs dependencies with the shared `setup-ci-deps` action, and builds an unsigned Windows NSIS installer. The release contains the installer, its blockmap, and `latest.yml`.
 
 The desktop auto-update feed points at `umysy/t3code`. Windows SmartScreen can warn because fork installers are unsigned.
 
