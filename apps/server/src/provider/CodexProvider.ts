@@ -686,6 +686,7 @@ const CODEX_STARTUP_WORK_GRACE = Duration.minutes(1);
 
 const codexProcessGroupIsBusy = Effect.fn("codexProcessGroupIsBusy")(
   function* (pid: number) {
+    if ((yield* HostProcess.Platform) === "win32") return false;
     const { stdout } = yield* spawnAndCollect(
       "pgrep",
       ChildProcess.make("pgrep", ["-g", `${pid}`]),
