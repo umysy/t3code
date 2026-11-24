@@ -166,6 +166,8 @@ export const make = Effect.gen(function* () {
 
   // Serialize refreshes so slow old-settings reads cannot resurrect removed sources after newer refreshes.
   const refreshLock = yield* Semaphore.make(1);
+  // Resolved here, not per refresh: background refreshes run in the layer's context, not a caller's.
+  const extension = yield* Effect.serviceOption(UsageLimitSourceExtension);
   const refresh = Effect.gen(function* () {
     const settings = yield* settingsService.getSettings.pipe(
       Effect.orElseSucceed((): ServerSettings | null => null),
@@ -179,7 +181,6 @@ export const make = Effect.gen(function* () {
       { concurrency: 4 },
     );
     const previous = yield* Ref.get(stateRef);
-    const extension = yield* Effect.serviceOption(UsageLimitSourceExtension);
     const extra = extension._tag === "Some" ? yield* extension.value.read(previous) : ([] as const);
     yield* publish(keepLastGoodReadings(previous, [...snapshots, ...extra]));
   }).pipe(refreshLock.withPermits(1), Effect.ignoreCause({ log: true }));
