@@ -1,0 +1,51 @@
+name: Check upstream stable release
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+jobs:
+  check:
+    if: github.repository == 'umysy/t3code'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check for upstream release issue
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo='umysy/t3code'
+          tag="$(gh api repos/pingdotgg/t3code/releases/latest --jq .tag_name)"
+          if [[ -z "$tag" || "$tag" == *-* ]]; then
+            echo "No stable upstream release found."
+            exit 0
+          fi
+
+          has_issues="$(gh api "repos/$repo" --jq .has_issues)"
+          if [[ "$has_issues" != 'true' ]]; then
+            echo "Issues are disabled for $repo; cannot record upstream release $tag." >&2
+            exit 1
+          fi
+
+          title="Upstream stable release $tag"
+          matches="$(gh issue list --repo "$repo" --state all --search "in:title \"$title\"" --json title --limit 100)"
+          if jq -e --arg title "$title" 'any(.[]; .title == $title)' <<<"$matches" >/dev/null; then
+            echo "Issue already exists: $title"
+            exit 0
+          fi
+
+          body=$(cat <<EOF
+          Upstream stable release: https://github.com/pingdotgg/t3code/releases/tag/$tag
+
+          - [ ] Rebase fork/main onto $tag
+          - [ ] Run checks
+          - [ ] Build with the Fork release workflow
+          - [ ] Publish on the owner's approval
+          EOF
+          )
+          gh issue create --repo "$repo" --title "$title" --body "$body"
