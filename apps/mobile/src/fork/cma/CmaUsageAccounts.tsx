@@ -6,6 +6,7 @@ import { View } from "react-native";
 import { AppText as Text } from "../../components/ui/AppText";
 import { SegmentedControl } from "../../components/ui/SegmentedControl";
 import { ProviderIcon } from "../../components/ProviderIcon";
+import { useProviderColors } from "../../features/usage/usageProviders";
 import { useEffect, useRef, useState } from "react";
 import {
   cmaReadAt,
@@ -187,6 +188,7 @@ function CmaAccountCard({ account }: { readonly account: LimitAccount }) {
 
 function CmaAccountsChart({ accounts }: { readonly accounts: readonly LimitAccount[] }) {
   const gt = useGT();
+  const codexColor = useProviderColors().codex;
   const locale = useLocale();
   const m = useMessages();
   return (
@@ -263,7 +265,7 @@ function CmaAccountsChart({ accounts }: { readonly accounts: readonly LimitAccou
                       <View className="h-5 overflow-hidden rounded-md bg-subtle">
                         <View
                           className="h-full rounded-md opacity-35"
-                          style={{ width: `${remaining}%`, backgroundColor: "#8b5cf6" }}
+                          style={{ width: `${remaining}%`, backgroundColor: codexColor }}
                         />
                       </View>
                       {window.resetsAt ? (
