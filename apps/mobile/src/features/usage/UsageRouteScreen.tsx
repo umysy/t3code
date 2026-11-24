@@ -162,6 +162,7 @@ function UsageScreen(props: {
     : merged.daily;
 
   const [refreshingUsage, setRefreshingUsage] = useState(false);
+  const [manualRefreshPending, setManualRefreshPending] = useState(false);
   const refreshingRef = useRef(false);
   const showingLimits = view === "limits";
   const metric: UsageChartMetric = view === "tokens" ? "tokens" : "cost";
@@ -192,9 +193,11 @@ function UsageScreen(props: {
     }
     refreshingRef.current = true;
     setRefreshingUsage(true);
+    setManualRefreshPending(true);
     void refresh(nextWindow).finally(() => {
       refreshingRef.current = false;
       setRefreshingUsage(false);
+      setManualRefreshPending(false);
     });
   };
 
@@ -261,7 +264,14 @@ function UsageScreen(props: {
             showingLimits || canReadDiagnostics ? (
               <RefreshControl
                 refreshing={showingLimits ? limits.refreshing : refreshingUsage}
-                onRefresh={showingLimits ? () => void limits.refresh() : refreshWindow}
+                onRefresh={
+                  showingLimits
+                    ? () => {
+                        setManualRefreshPending(true);
+                        void limits.refresh().finally(() => setManualRefreshPending(false));
+                      }
+                    : refreshWindow
+                }
               />
             ) : undefined
           }
@@ -307,6 +317,7 @@ function UsageScreen(props: {
                   now={limits.now}
                   failedLabels={limits.failedLabels}
                   selectedEnvironmentIds={selectedEnvironmentIds}
+                  manualRefreshPending={manualRefreshPending}
                   wide={wide}
                 />
               ) : (
