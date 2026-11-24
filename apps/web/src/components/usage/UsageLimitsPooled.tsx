@@ -692,11 +692,6 @@ export function UsageLimitsPooled({
   const externalLinks = collectExternalUsageLinks(presentations, m);
   return (
     <div className="flex flex-col gap-8">
-      <CmaAccountsSection
-        accounts={accounts}
-        now={now}
-        manualRefreshPending={manualRefreshPending}
-      />
       {selectCmaUsageAccounts(accounts).length === 0 &&
       pools.length === 0 &&
       notices.length === 0 &&
@@ -712,6 +707,11 @@ export function UsageLimitsPooled({
           </Fragment>
         ))}
       </SegmentPopoverContext>
+      <CmaAccountsSection
+        accounts={accounts}
+        now={now}
+        manualRefreshPending={manualRefreshPending}
+      />
       <Popover handle={segmentPopover} actionsRef={segmentPopoverActions}>
         {({ payload }) =>
           payload ? (

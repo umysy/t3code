@@ -13,6 +13,10 @@ export function formatCmaTimestamp(value: string | undefined, locale: string | u
   return date.toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" });
 }
 
+export function formatCmaBillingPeriod(value: string | undefined): string {
+  return value ? value.charAt(0).toUpperCase() + value.slice(1).toLowerCase() : "";
+}
+
 export function cmaReadAt(accounts: readonly Pick<LimitAccount, "limits">[]): string | undefined {
   return accounts
     .map((account) => account.limits.checkedAt)

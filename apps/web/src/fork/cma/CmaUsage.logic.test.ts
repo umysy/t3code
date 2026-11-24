@@ -1,8 +1,16 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { cmaSourceReadAt, formatCmaDate, shouldShowCmaRefreshHint } from "./CmaUsage.logic";
+import {
+  cmaSourceReadAt,
+  formatCmaBillingPeriod,
+  formatCmaDate,
+  shouldShowCmaRefreshHint,
+} from "./CmaUsage.logic";
 
 describe("CMA usage formatting", () => {
+  it("capitalizes billing periods", () => {
+    expect(formatCmaBillingPeriod("monthly")).toBe("Monthly");
+  });
   it("keeps the calendar date when an expiry is on the current day", () => {
     expect(formatCmaDate("2026-10-25T16:30:00.000Z", "locale")).toMatch(/2026/);
   });

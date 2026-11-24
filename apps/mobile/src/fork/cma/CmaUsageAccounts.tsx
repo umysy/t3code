@@ -11,6 +11,7 @@ import {
   cmaReadAt,
   cmaSourceReadAt,
   cmaSubscriptionExpiry,
+  formatCmaBillingPeriod,
   formatCmaTimestamp,
   shouldShowCmaRefreshHint,
 } from "./CmaUsageAccounts.logic";
@@ -20,7 +21,7 @@ function valueOrUnknown(value: string | undefined, unknown: string): string {
 }
 
 function accountName(account: LimitAccount): string {
-  return account.email ?? account.displayName ?? account.key;
+  return account.email ?? account.key.split(":").at(-1) ?? account.key;
 }
 
 function StateBadge({
@@ -60,13 +61,6 @@ function CmaAccountCard({ account }: { readonly account: LimitAccount }) {
     subscription?.planDisplayName ??
     subscription?.planType ??
     subscription?.subscriptionPlan;
-  const status = !account.enabled
-    ? gt("Disabled")
-    : account.current === true
-      ? gt("Current")
-      : account.current === false
-        ? gt("Not current")
-        : gt("Current state unknown");
 
   return (
     <View className="gap-4 rounded-[24px] border-continuous bg-grouped-card p-4">
@@ -82,7 +76,10 @@ function CmaAccountCard({ account }: { readonly account: LimitAccount }) {
             </Text>
           ) : null}
         </View>
-        <StateBadge label={status} muted={!account.enabled || account.current === false} />
+        <View className="flex-row gap-1.5">
+          {account.current === true ? <StateBadge label={gt("Current")} /> : null}
+          {account.enabled === false ? <StateBadge label={gt("Disabled")} muted /> : null}
+        </View>
       </View>
 
       {unavailable || stale ? (
@@ -136,40 +133,53 @@ function CmaAccountCard({ account }: { readonly account: LimitAccount }) {
           label={gt("Plan", { $context: "subscription plan" })}
           value={valueOrUnknown(plan, m(msg("Unknown")))}
         />
-        <DetailRow
-          label={gt("Subscription", { $context: "subscription metadata" })}
-          value={valueOrUnknown(
-            subscription?.active === undefined
-              ? undefined
-              : subscription.active
-                ? gt("Active")
-                : gt("Inactive"),
-            m(msg("Unknown")),
-          )}
-        />
-        <DetailRow
-          label={gt("Billing period", { $context: "subscription billing period" })}
-          value={valueOrUnknown(subscription?.billingPeriod, m(msg("Unknown")))}
-        />
-        <DetailRow
-          label={gt("Expires", { $context: "subscription expiry" })}
-          value={formatCmaTimestamp(cmaSubscriptionExpiry(account), locale) || m(msg("Unknown"))}
-        />
-        <DetailRow
-          label={gt("Renews", { $context: "subscription renewal time" })}
-          value={formatCmaTimestamp(subscription?.renewsAt, locale) || m(msg("Unknown"))}
-        />
-        <DetailRow
-          label={gt("Renewal", { $context: "subscription renewal status" })}
-          value={valueOrUnknown(
-            subscription?.willRenew === undefined
-              ? undefined
-              : subscription.willRenew
-                ? gt("Will renew")
-                : gt("Will not renew"),
-            m(msg("Unknown")),
-          )}
-        />
+        {subscription?.active !== undefined ? (
+          <DetailRow
+            label={gt("Subscription", { $context: "subscription metadata" })}
+            value={valueOrUnknown(
+              subscription?.active === undefined
+                ? undefined
+                : subscription.active
+                  ? gt("Active")
+                  : gt("Inactive"),
+              m(msg("Unknown")),
+            )}
+          />
+        ) : null}
+        {subscription?.billingPeriod ? (
+          <DetailRow
+            label={gt("Billing period", { $context: "subscription billing period" })}
+            value={valueOrUnknown(
+              formatCmaBillingPeriod(subscription?.billingPeriod),
+              m(msg("Unknown")),
+            )}
+          />
+        ) : null}
+        {subscription?.expiresAt ? (
+          <DetailRow
+            label={gt("Expires", { $context: "subscription expiry" })}
+            value={formatCmaTimestamp(cmaSubscriptionExpiry(account), locale) || m(msg("Unknown"))}
+          />
+        ) : null}
+        {subscription?.renewsAt ? (
+          <DetailRow
+            label={gt("Renews", { $context: "subscription renewal time" })}
+            value={formatCmaTimestamp(subscription?.renewsAt, locale) || m(msg("Unknown"))}
+          />
+        ) : null}
+        {subscription?.willRenew !== undefined ? (
+          <DetailRow
+            label={gt("Renewal", { $context: "subscription renewal status" })}
+            value={valueOrUnknown(
+              subscription?.willRenew === undefined
+                ? undefined
+                : subscription.willRenew
+                  ? gt("Will renew")
+                  : gt("Will not renew"),
+              m(msg("Unknown")),
+            )}
+          />
+        ) : null}
       </View>
     </View>
   );
@@ -207,18 +217,10 @@ function CmaAccountsChart({ accounts }: { readonly accounts: readonly LimitAccou
                   </Text>
                 ) : null}
               </View>
-              <StateBadge
-                label={
-                  !account.enabled
-                    ? gt("Disabled")
-                    : account.current === true
-                      ? gt("Current")
-                      : account.current === false
-                        ? gt("Not current")
-                        : gt("Current state unknown")
-                }
-                muted={!account.enabled || account.current === false}
-              />
+              <View className="flex-row gap-1.5">
+                {account.current === true ? <StateBadge label={gt("Current")} /> : null}
+                {account.enabled === false ? <StateBadge label={gt("Disabled")} muted /> : null}
+              </View>
             </View>
             {unavailable || stale ? (
               <View className="rounded-xl border border-warning-border bg-warning px-3 py-2">
@@ -229,12 +231,18 @@ function CmaAccountsChart({ accounts }: { readonly accounts: readonly LimitAccou
             ) : null}
             <View className="flex-row flex-wrap gap-x-4 gap-y-1">
               <Text className="text-xs text-foreground-muted">
-                {gt("Plan", { $context: "subscription plan" })}: {plan || m(msg("Unknown"))}
+                {gt("Observed")}:{" "}
+                {formatCmaTimestamp(account.limits.checkedAt, locale) || m(msg("Unknown"))}
               </Text>
               <Text className="text-xs text-foreground-muted">
-                {gt("Expires", { $context: "subscription expiry" })}:{" "}
-                {formatCmaTimestamp(cmaSubscriptionExpiry(account), locale) || m(msg("Unknown"))}
+                {gt("Plan", { $context: "subscription plan" })}: {plan || m(msg("Unknown"))}
               </Text>
+              {cmaSubscriptionExpiry(account) ? (
+                <Text className="text-xs text-foreground-muted">
+                  {gt("Expires", { $context: "subscription expiry" })}:{" "}
+                  {formatCmaTimestamp(cmaSubscriptionExpiry(account), locale)}
+                </Text>
+              ) : null}
             </View>
             <View className="gap-3">
               {account.limits.windows.length === 0 ? (
@@ -252,25 +260,19 @@ function CmaAccountsChart({ accounts }: { readonly accounts: readonly LimitAccou
                           </T>
                         </Text>
                       </View>
-                      <View className="h-2 overflow-hidden rounded-full bg-subtle">
+                      <View className="h-5 overflow-hidden rounded-md bg-subtle">
                         <View
-                          className={
-                            remaining <= 10
-                              ? "h-full rounded-full bg-red-500"
-                              : remaining <= 30
-                                ? "h-full rounded-full bg-amber-500"
-                                : "h-full rounded-full bg-foreground"
-                          }
-                          style={{ width: `${remaining}%` }}
+                          className="h-full rounded-md opacity-35"
+                          style={{ width: `${remaining}%`, backgroundColor: "#8b5cf6" }}
                         />
                       </View>
-                      <Text className="text-xs text-foreground-muted">
-                        {gt("Resets {time}", {
-                          time: window.resetsAt
-                            ? formatCmaTimestamp(window.resetsAt, locale)
-                            : m(msg("Unknown")),
-                        })}
-                      </Text>
+                      {window.resetsAt ? (
+                        <Text className="text-xs text-foreground-muted">
+                          {gt("Resets {time}", {
+                            time: formatCmaTimestamp(window.resetsAt, locale),
+                          })}
+                        </Text>
+                      ) : null}
                     </View>
                   );
                 })
@@ -320,9 +322,12 @@ export function CmaUsageAccountsSection({
     <View className="gap-3">
       <View className="flex-row items-center justify-between gap-3">
         <View>
-          <Text className="px-1 text-base font-t3-medium text-foreground">
-            {gt("Codex accounts", { $context: "CMA usage account list" })}
-          </Text>
+          <View className="flex-row items-center gap-2">
+            <ProviderIcon provider="codex" size={18} />
+            <Text className="text-base font-t3-medium text-foreground">
+              {gt("Codex accounts", { $context: "CMA usage account list" })}
+            </Text>
+          </View>
           {readAt ? (
             <Text className="px-1 text-xs text-foreground-muted">
               {m(
