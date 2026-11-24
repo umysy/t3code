@@ -115,11 +115,9 @@ const labelEmail = (record: JsonRecord): string | undefined => {
 };
 
 const quotaWindowLabel = (key: "primary" | "secondary", windowMinutes: number | undefined) => {
-  if (windowMinutes !== undefined && windowMinutes > 0 && windowMinutes % 1_440 === 0) {
-    return `${windowMinutes / 1_440}-day`;
-  }
-  if (windowMinutes !== undefined && windowMinutes % 60 === 0) {
-    return `${windowMinutes / 60}-hour`;
+  if (windowMinutes !== undefined && windowMinutes > 0) {
+    if (windowMinutes % 1_440 === 0) return `${windowMinutes / 1_440}-day`;
+    if (windowMinutes % 60 === 0) return `${windowMinutes / 60}-hour`;
   }
   return key === "primary" ? "5-hour" : "7-day";
 };
