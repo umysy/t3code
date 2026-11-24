@@ -19,6 +19,15 @@ export function cmaReadAt(accounts: readonly Pick<LimitAccount, "limits">[]): st
     .sort((a, b) => Date.parse(b) - Date.parse(a))[0];
 }
 
+export function cmaSourceReadAt(
+  accounts: readonly Pick<LimitAccount, "sourceCheckedAt">[],
+): string | undefined {
+  return accounts
+    .map((account) => account.sourceCheckedAt)
+    .filter((value): value is string => Boolean(value))
+    .sort((a, b) => Date.parse(b) - Date.parse(a))[0];
+}
+
 export function shouldShowCmaRefreshHint(
   before: string | undefined,
   after: string | undefined,

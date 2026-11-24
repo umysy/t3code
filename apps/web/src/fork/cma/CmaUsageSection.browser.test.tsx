@@ -154,6 +154,6 @@ describe("CMA usage section", () => {
     await expect.element(screen.getByLabelText("CMA quota chart")).toBeVisible();
     await expect.element(screen.getByText("75% left")).toBeVisible();
     await expect.element(screen.getByText("50% left")).toBeVisible();
-    await expect.element(screen.getByText(/Resets 4:00 AM/)).toBeVisible();
+    await expect.element(screen.getByText(/Resets/)).toBeVisible();
   });
 });

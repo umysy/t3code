@@ -5,6 +5,7 @@ export interface CmaLimitAccountMetadata {
   readonly current: boolean | undefined;
   readonly subscription: UsageLimitSourceSnapshot["accounts"][number]["subscription"];
   readonly sourceKind: UsageLimitSourceSnapshot["kind"] | undefined;
+  readonly sourceCheckedAt?: UsageLimitSourceSnapshot["checkedAt"];
   readonly sourceError: string | undefined;
 }
 
@@ -20,6 +21,12 @@ export function mergeCmaAccountMetadata(
     current: winner.current ?? previous.current ?? next.current,
     subscription: winner.subscription ?? previous.subscription ?? next.subscription,
     sourceKind: winner.sourceKind ?? previous.sourceKind ?? next.sourceKind,
+    ...((winner.sourceCheckedAt ?? previous.sourceCheckedAt ?? next.sourceCheckedAt)
+      ? {
+          sourceCheckedAt:
+            winner.sourceCheckedAt ?? previous.sourceCheckedAt ?? next.sourceCheckedAt,
+        }
+      : {}),
     sourceError:
       winner.sourceError ??
       (winner.sourceKind === "cma" ? undefined : (previous.sourceError ?? next.sourceError)),
