@@ -12,6 +12,10 @@ export function formatCmaDate(
     : undefined;
 }
 
+export function formatCmaBillingPeriod(value: string | undefined): string | undefined {
+  return value ? value.charAt(0).toUpperCase() + value.slice(1).toLowerCase() : undefined;
+}
+
 export function cmaReadAt(accounts: readonly Pick<LimitAccount, "limits">[]): string | undefined {
   return accounts
     .map((account) => account.limits.checkedAt)

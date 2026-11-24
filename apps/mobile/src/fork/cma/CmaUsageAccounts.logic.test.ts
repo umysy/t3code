@@ -4,11 +4,15 @@ import {
   cmaSubscriptionExpiry,
   cmaSourceReadAt,
   formatCmaTimestamp,
+  formatCmaBillingPeriod,
   selectCmaUsageAccounts,
   shouldShowCmaRefreshHint,
 } from "./CmaUsageAccounts.logic";
 
 describe("CMA usage account presentation data", () => {
+  it("capitalizes billing periods", () => {
+    expect(formatCmaBillingPeriod("monthly")).toBe("Monthly");
+  });
   it("keeps every CMA account in the source order", () => {
     const accounts = [
       { sourceKind: "cliproxy" as const, id: "cliproxy" },

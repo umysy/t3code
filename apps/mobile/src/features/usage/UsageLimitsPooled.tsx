@@ -497,7 +497,6 @@ export function UsageLimitsSection({
   const gt = useGT();
   return (
     <View className="gap-6">
-      <CmaUsageAccountsSection accounts={cmaAccounts} manualRefreshPending={manualRefreshPending} />
       {pools.length === 0 &&
       cmaAccounts.length === 0 &&
       notices.length === 0 &&
@@ -567,6 +566,7 @@ export function UsageLimitsSection({
           </Fragment>
         );
       })}
+      <CmaUsageAccountsSection accounts={cmaAccounts} manualRefreshPending={manualRefreshPending} />
       {externalLinks.map((link) => (
         <View key={link.url} className="gap-3 rounded-xl border border-border-subtle p-4">
           <Text className="text-base font-t3-medium text-foreground">{link.label}</Text>
