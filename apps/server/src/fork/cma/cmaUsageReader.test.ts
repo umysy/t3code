@@ -3,7 +3,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 
-import * as ProcessRunner from "../processRunner.ts";
+import * as ProcessRunner from "../../processRunner.ts";
 import * as CmaUsageReader from "./cmaUsageReader.ts";
 
 const output = (stdout: string, code = 0, stderr = "") =>
