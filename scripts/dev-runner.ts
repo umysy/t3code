@@ -324,6 +324,7 @@ export const createDevRunnerEnv = Effect.fn("dev-runner.createDevRunnerEnv")(fun
 
   const output: NodeJS.ProcessEnv = {
     ...baseEnv,
+    T3CODE_ENVIRONMENT_ROLE: baseEnv.T3CODE_ENVIRONMENT_ROLE ?? "development",
     PORT: String(webPort),
     VITE_DEV_SERVER_URL:
       devUrl?.toString() ??

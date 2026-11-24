@@ -231,8 +231,13 @@ export const ExecutionEnvironmentCapabilities = Schema.Struct({
 });
 export type ExecutionEnvironmentCapabilities = typeof ExecutionEnvironmentCapabilities.Type;
 
+export const EnvironmentRole = Schema.Literals(["development", "test", "production"]);
+export type EnvironmentRole = typeof EnvironmentRole.Type;
+
 export const ExecutionEnvironmentDescriptor = Schema.Struct({
   environmentId: EnvironmentId,
+  /** Semantic role used for server-side environment policy. Older servers omit it. */
+  environmentRole: Schema.optionalKey(EnvironmentRole),
   label: TrimmedNonEmptyString,
   platform: ExecutionEnvironmentPlatform,
   serverVersion: TrimmedNonEmptyString,
