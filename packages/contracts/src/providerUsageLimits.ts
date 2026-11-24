@@ -66,6 +66,18 @@ export const ServerProviderUsageLimits = Schema.Struct({
 });
 export type ServerProviderUsageLimits = typeof ServerProviderUsageLimits.Type;
 
+export const UsageLimitSourceSubscription = Schema.Struct({
+  planType: Schema.optional(TrimmedNonEmptyString),
+  planDisplayName: Schema.optional(TrimmedNonEmptyString),
+  subscriptionPlan: Schema.optional(TrimmedNonEmptyString),
+  billingPeriod: Schema.optional(TrimmedNonEmptyString),
+  active: Schema.optional(Schema.Boolean),
+  expiresAt: Schema.optional(IsoDateTime),
+  renewsAt: Schema.optional(IsoDateTime),
+  willRenew: Schema.optional(Schema.Boolean),
+});
+export type UsageLimitSourceSubscription = typeof UsageLimitSourceSubscription.Type;
+
 /** Partial updates merge windows by id; omitted windows remain unchanged. */
 export const ProviderUsageLimitsUpdate = Schema.Struct({
   windows: Schema.Array(ServerProviderUsageWindow),
@@ -77,6 +89,9 @@ export const UsageLimitSourceAccount = Schema.Struct({
   driver: ProviderDriverKind,
   email: Schema.optional(TrimmedNonEmptyString),
   plan: Schema.optional(TrimmedNonEmptyString),
+  enabled: Schema.optional(Schema.Boolean),
+  current: Schema.optional(Schema.Boolean),
+  subscription: Schema.optional(UsageLimitSourceSubscription),
   workspaceId: Schema.optional(TrimmedNonEmptyString),
   /** The models the hub routes to this account. */
   models: Schema.optional(Schema.Array(TrimmedNonEmptyString)),
@@ -86,7 +101,7 @@ export type UsageLimitSourceAccount = typeof UsageLimitSourceAccount.Type;
 
 export const UsageLimitSourceSnapshot = Schema.Struct({
   id: UsageLimitSourceId,
-  kind: Schema.Literal("cliproxy"),
+  kind: Schema.Literals(["cliproxy", "cma"]),
   label: TrimmedNonEmptyString,
   /** Origin of the hub, which also serves the agents sent through it. */
   origin: Schema.optional(TrimmedNonEmptyString),
@@ -150,6 +165,11 @@ export const UsageLimitsReport = Schema.Struct({
       label: TrimmedNonEmptyString,
       plan: Schema.optional(TrimmedNonEmptyString),
       email: Schema.optional(TrimmedNonEmptyString),
+      enabled: Schema.optional(Schema.Boolean),
+      current: Schema.optional(Schema.Boolean),
+      subscription: Schema.optional(UsageLimitSourceSubscription),
+      sourceKind: Schema.optional(Schema.Literals(["cliproxy", "cma"])),
+      sourceError: Schema.optional(TrimmedNonEmptyString),
       sourceLabel: Schema.optional(TrimmedNonEmptyString),
       instanceId: Schema.optional(ProviderInstanceId),
       resetCreditInput: Schema.optional(ProviderConsumeResetCreditInput),
