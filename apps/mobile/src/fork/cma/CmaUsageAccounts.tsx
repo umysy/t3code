@@ -115,12 +115,7 @@ function CmaAccountCard({ account }: { readonly account: LimitAccount }) {
                 label={gt("Resets", { $context: "when the usage window resets" })}
                 value={formatCmaTimestamp(window.resetsAt, locale) || m(msg("Unknown"))}
               />
-            ) : (
-              <DetailRow
-                label={gt("Resets", { $context: "when the usage window resets" })}
-                value={m(msg("Unknown"))}
-              />
-            )}
+            ) : null}
           </View>
         ))}
       </View>
@@ -130,10 +125,9 @@ function CmaAccountCard({ account }: { readonly account: LimitAccount }) {
           label={gt("Observed")}
           value={formatCmaTimestamp(account.limits.checkedAt, locale) || m(msg("Unknown"))}
         />
-        <DetailRow
-          label={gt("Plan", { $context: "subscription plan" })}
-          value={valueOrUnknown(plan, m(msg("Unknown")))}
-        />
+        {plan ? (
+          <DetailRow label={gt("Plan", { $context: "subscription plan" })} value={plan} />
+        ) : null}
         {subscription?.active !== undefined ? (
           <DetailRow
             label={gt("Subscription", { $context: "subscription metadata" })}

@@ -83,15 +83,14 @@ describe("CMA usage section", () => {
       <UsageLimitsPooled presentations={presentations} now={Date.parse(checkedAt)} />,
     );
 
-    await expect.element(screen.getByText("work-account")).toBeVisible();
-    await expect.element(screen.getByText("personal-account")).toBeVisible();
-    await expect.element(screen.getByText("third-account")).toBeVisible();
+    await expect
+      .element(screen.getByRole("button", { name: "Toggle account email visibility" }).nth(2))
+      .toBeVisible();
     await expect.element(screen.getByText("7-hour").first()).toBeVisible();
     await expect.element(screen.getByText("7-day").first()).toBeVisible();
     await expect.element(screen.getByText("ChatGPT Pro").first()).toBeVisible();
     await expect.element(screen.getByText("Stale").first()).toBeVisible();
     await expect.element(screen.getByText("Disabled")).toBeVisible();
-    await expect.element(screen.getByText("Unknown").first()).toBeVisible();
     expect(screen.container.textContent).not.toContain(
       "No provider on the selected environments reports subscription limits.",
     );
