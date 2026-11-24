@@ -1,3 +1,4 @@
+import { ProviderDriverKind } from "@t3tools/contracts";
 import type { LimitAccount } from "@t3tools/shared/usageLimits";
 import { remainingPercent } from "@t3tools/shared/usageLimits";
 import { selectCmaUsageAccounts } from "@t3tools/shared/forkCmaUsage";
@@ -11,6 +12,7 @@ import { RedactedSensitiveText } from "../../components/settings/RedactedSensiti
 import { ProviderInstanceIcon } from "../../components/chat/ProviderInstanceIcon";
 import { Badge } from "../../components/ui/badge";
 import { Toggle, ToggleGroup } from "../../components/ui/toggle-group";
+import { barColor } from "../../components/usage/UsageLimits";
 import {
   cmaReadAt,
   cmaSourceReadAt,
@@ -18,6 +20,9 @@ import {
   formatCmaDate,
   shouldShowCmaRefreshHint,
 } from "./CmaUsage.logic";
+
+const CODEX_DRIVER = ProviderDriverKind.make("codex");
+const CODEX_BAR_COLOR = barColor(CODEX_DRIVER);
 
 function CmaValue({ value }: { readonly value: string | boolean | undefined }) {
   const gt = useGT();
@@ -46,13 +51,6 @@ function CmaAccountHeader({ account }: { readonly account: LimitAccount }) {
   return (
     <div className="flex flex-wrap items-start justify-between gap-2">
       <div className="flex min-w-0 items-center gap-2">
-        <ProviderInstanceIcon
-          driverKind="codex"
-          displayName="Codex"
-          indicatorBackground="var(--background)"
-          className="size-5"
-          iconClassName="size-4 text-foreground/80"
-        />
         <div className="min-w-0">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             {account.email ? (
@@ -72,6 +70,15 @@ function CmaAccountHeader({ account }: { readonly account: LimitAccount }) {
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-1.5">
+        {account.limits.unavailable ? (
+          <Badge size="sm" variant="warning">
+            {gt("Unavailable")}
+          </Badge>
+        ) : account.sourceError ? (
+          <Badge size="sm" variant="warning">
+            {gt("Stale")}
+          </Badge>
+        ) : null}
         {account.current === true ? (
           <Badge size="sm" variant="success">
             {gt("Current")}
@@ -247,7 +254,7 @@ function CmaAccountsChart({
                     <div className="h-5 overflow-hidden rounded-md bg-muted">
                       <div
                         className="h-full rounded-md opacity-35"
-                        style={{ width: `${remaining}%`, backgroundColor: "var(--color-codex)" }}
+                        style={{ width: `${remaining}%`, backgroundColor: CODEX_BAR_COLOR }}
                       />
                     </div>
                     {window.resetsAt ? (
@@ -315,7 +322,7 @@ export function CmaAccountsSection({
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <ProviderInstanceIcon
-            driverKind="codex"
+            driverKind={CODEX_DRIVER}
             displayName="Codex"
             indicatorBackground="var(--background)"
             className="size-5"
