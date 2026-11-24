@@ -13,6 +13,21 @@ export function formatCmaTimestamp(value: string | undefined, locale: string | u
   return date.toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" });
 }
 
+export function cmaReadAt(accounts: readonly Pick<LimitAccount, "limits">[]): string | undefined {
+  return accounts
+    .map((account) => account.limits.checkedAt)
+    .filter((value): value is string => Boolean(value))
+    .sort((a, b) => Date.parse(b) - Date.parse(a))[0];
+}
+
+export function shouldShowCmaRefreshHint(
+  before: string | undefined,
+  after: string | undefined,
+  refreshCompleted: boolean,
+): boolean {
+  return refreshCompleted && before !== undefined && after !== undefined && before === after;
+}
+
 export function cmaSubscriptionExpiry(
   account: Pick<LimitAccount, "subscription">,
 ): string | undefined {

@@ -5397,5 +5397,7 @@
   "e9fe850822b912d1": "Renewal",
   "98e88f900ddda24b": "Will renew",
   "318056000cd94556": "Will not renew",
-  "aacbe3a7f7a5b710": "Codex accounts"
+  "aacbe3a7f7a5b710": "Codex accounts",
+  "48095d4067502f2a": "CMA 每 5 分钟最多只能读取一次账号数据",
+  "f3dccf6e19d563c4": "更新于 {date}"
 }

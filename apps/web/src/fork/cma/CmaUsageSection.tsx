@@ -3,13 +3,13 @@ import { remainingPercent } from "@t3tools/shared/usageLimits";
 import { selectCmaUsageAccounts } from "@t3tools/shared/forkCmaUsage";
 import { useGT, useMessages } from "gt-react";
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { usePrimarySettings } from "../../hooks/useSettings";
 import { formatUpcomingTimestamp } from "../../timestampFormat";
 import { RedactedSensitiveText } from "../../components/settings/RedactedSensitiveText";
 import { Toggle, ToggleGroup } from "../../components/ui/toggle-group";
-import { formatCmaDate } from "./CmaUsage.logic";
+import { cmaReadAt, formatCmaDate, shouldShowCmaRefreshHint } from "./CmaUsage.logic";
 
 function CmaValue({ value }: { readonly value: string | boolean | undefined }) {
   const gt = useGT();
@@ -267,18 +267,50 @@ export type CmaUsageView = "text" | "chart";
 export function CmaAccountsSection({
   accounts,
   now,
+  manualRefreshPending = false,
 }: {
   readonly accounts: readonly LimitAccount[];
   readonly now: number;
+  readonly manualRefreshPending?: boolean;
 }) {
   const gt = useGT();
   const [view, setView] = useState<CmaUsageView>("text");
   const cmaAccounts = selectCmaUsageAccounts(accounts);
+  const readAt = cmaReadAt(cmaAccounts);
+  const previousReadAt = useRef<string | undefined>(undefined);
+  const hintReadAt = useRef<string | undefined>(undefined);
+  const [showRefreshHint, setShowRefreshHint] = useState(false);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- records the completed manual refresh result while this section is mounted
+  useEffect(() => {
+    if (manualRefreshPending) {
+      if (previousReadAt.current === undefined) previousReadAt.current = readAt;
+      return;
+    }
+    if (previousReadAt.current !== undefined) {
+      const show = shouldShowCmaRefreshHint(previousReadAt.current, readAt, true);
+      setShowRefreshHint(show);
+      hintReadAt.current = show ? readAt : undefined;
+      previousReadAt.current = undefined;
+    } else if (showRefreshHint && hintReadAt.current !== readAt) {
+      setShowRefreshHint(false);
+      hintReadAt.current = undefined;
+    }
+  }, [manualRefreshPending, previousReadAt, readAt, showRefreshHint, hintReadAt]);
+  const timestampFormat = usePrimarySettings((settings) => settings.timestampFormat);
   if (cmaAccounts.length === 0) return null;
   return (
     <section className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-sm font-medium text-foreground">{gt("CMA accounts")}</h2>
+        <div>
+          <h2 className="text-sm font-medium text-foreground">{gt("CMA accounts")}</h2>
+          {readAt ? (
+            <p className="text-2xs text-muted-foreground">
+              {gt("Updated {date}", {
+                date: formatCmaDate(readAt, timestampFormat) ?? gt("Unknown"),
+              })}
+            </p>
+          ) : null}
+        </div>
         <ToggleGroup
           aria-label={gt("Limits view")}
           variant="segmented"
@@ -292,6 +324,11 @@ export function CmaAccountsSection({
           <Toggle value="chart">{gt("Chart")}</Toggle>
         </ToggleGroup>
       </div>
+      {showRefreshHint ? (
+        <p role="status" className="text-xs text-muted-foreground">
+          {gt("CMA can read account data at most once every 5 minutes")}
+        </p>
+      ) : null}
       {view === "chart" ? (
         <CmaAccountsChart accounts={cmaAccounts} now={now} />
       ) : (

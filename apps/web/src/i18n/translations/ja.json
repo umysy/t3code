@@ -12354,5 +12354,6 @@
   "22b6f03c84962817": "Renews",
   "70eaf11f180bebb7": "Does not renew",
   "c9114ed62cca0297": "Billing period",
-  "2f14651a9be2629c": "CMA accounts"
+  "2f14651a9be2629c": "CMA accounts",
+  "48095d4067502f2a": "CMA can read account data at most once every 5 minutes"
 }

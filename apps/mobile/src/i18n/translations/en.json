@@ -5413,5 +5413,7 @@
   "e9fe850822b912d1": "Renewal",
   "98e88f900ddda24b": "Will renew",
   "318056000cd94556": "Will not renew",
-  "aacbe3a7f7a5b710": "Codex accounts"
+  "aacbe3a7f7a5b710": "Codex accounts",
+  "48095d4067502f2a": "CMA can read account data at most once every 5 minutes",
+  "f3dccf6e19d563c4": "Updated {date}"
 }

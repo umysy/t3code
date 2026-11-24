@@ -202,6 +202,7 @@ export function UsagePage() {
   const metric = preferences.metric;
   const showingLimits = metric === "limits";
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [manualRefreshPending, setManualRefreshPending] = useState(false);
   const [limitsNow, setLimitsNow] = useState(() => Date.now());
   const refreshingRef = useRef(false);
   const [priceDialog, setPriceDialog] = useState<{ readonly model?: string } | null>(null);
@@ -304,9 +305,11 @@ export function UsagePage() {
     if (showingLimits) {
       refreshingRef.current = true;
       setIsRefreshing(true);
+      setManualRefreshPending(true);
       void refreshLimits().finally(() => {
         refreshingRef.current = false;
         setIsRefreshing(false);
+        setManualRefreshPending(false);
       });
       return;
     }
@@ -321,9 +324,11 @@ export function UsagePage() {
     }
     refreshingRef.current = true;
     setIsRefreshing(true);
+    setManualRefreshPending(true);
     void refresh(nextWindow).finally(() => {
       refreshingRef.current = false;
       setIsRefreshing(false);
+      setManualRefreshPending(false);
     });
   };
   const connectedLimitsEnvironments = [...presentations]
@@ -536,6 +541,7 @@ export function UsagePage() {
                 selectedEnvironmentIds={selectedEnvironmentIds}
                 hiddenProviders={hiddenProviders}
                 now={limitsNow}
+                manualRefreshPending={manualRefreshPending}
               />
             ) : shown === null ? (
               <UsageSkeleton />

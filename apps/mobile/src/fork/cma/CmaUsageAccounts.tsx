@@ -6,8 +6,13 @@ import { View } from "react-native";
 import { AppText as Text } from "../../components/ui/AppText";
 import { SegmentedControl } from "../../components/ui/SegmentedControl";
 import { ProviderIcon } from "../../components/ProviderIcon";
-import { useState } from "react";
-import { cmaSubscriptionExpiry, formatCmaTimestamp } from "./CmaUsageAccounts.logic";
+import { useEffect, useRef, useState } from "react";
+import {
+  cmaReadAt,
+  cmaSubscriptionExpiry,
+  formatCmaTimestamp,
+  shouldShowCmaRefreshHint,
+} from "./CmaUsageAccounts.logic";
 
 function valueOrUnknown(value: string | undefined, unknown: string): string {
   return value && value.length > 0 ? value : unknown;
@@ -279,18 +284,53 @@ function CmaAccountsChart({ accounts }: { readonly accounts: readonly LimitAccou
 
 export function CmaUsageAccountsSection({
   accounts,
+  manualRefreshPending = false,
 }: {
   readonly accounts: readonly LimitAccount[];
+  readonly manualRefreshPending?: boolean;
 }) {
   const gt = useGT();
   const [view, setView] = useState<CmaUsageView>("text");
+  const locale = useLocale();
+  const m = useMessages();
+  const readAt = cmaReadAt(accounts);
+  const previousReadAt = useRef<string | undefined>(undefined);
+  const hintReadAt = useRef<string | undefined>(undefined);
+  const [showRefreshHint, setShowRefreshHint] = useState(false);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- records the completed manual refresh result while this section is mounted
+  useEffect(() => {
+    if (manualRefreshPending) {
+      if (previousReadAt.current === undefined) previousReadAt.current = readAt;
+      return;
+    }
+    if (previousReadAt.current !== undefined) {
+      const show = shouldShowCmaRefreshHint(previousReadAt.current, readAt, true);
+      setShowRefreshHint(show);
+      hintReadAt.current = show ? readAt : undefined;
+      previousReadAt.current = undefined;
+    } else if (showRefreshHint && hintReadAt.current !== readAt) {
+      setShowRefreshHint(false);
+      hintReadAt.current = undefined;
+    }
+  }, [manualRefreshPending, readAt, showRefreshHint, hintReadAt]);
   if (accounts.length === 0) return null;
   return (
     <View className="gap-3">
       <View className="flex-row items-center justify-between gap-3">
-        <Text className="px-1 text-base font-t3-medium text-foreground">
-          {gt("Codex accounts", { $context: "CMA usage account list" })}
-        </Text>
+        <View>
+          <Text className="px-1 text-base font-t3-medium text-foreground">
+            {gt("Codex accounts", { $context: "CMA usage account list" })}
+          </Text>
+          {readAt ? (
+            <Text className="px-1 text-xs text-foreground-muted">
+              {m(
+                msg("Updated {date}", {
+                  date: formatCmaTimestamp(readAt, locale) || m(msg("Unknown")),
+                }),
+              )}
+            </Text>
+          ) : null}
+        </View>
         <SegmentedControl
           options={[
             { value: "text" as const, label: gt("Text") },
@@ -302,6 +342,11 @@ export function CmaUsageAccountsSection({
           role="tab"
         />
       </View>
+      {showRefreshHint ? (
+        <Text accessibilityRole="alert" className="px-1 text-sm text-foreground-muted">
+          {m(msg("CMA can read account data at most once every 5 minutes"))}
+        </Text>
+      ) : null}
       {view === "chart" ? (
         <CmaAccountsChart accounts={accounts} />
       ) : (

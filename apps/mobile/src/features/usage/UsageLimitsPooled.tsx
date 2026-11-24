@@ -472,11 +472,13 @@ export function UsageLimitsSection({
   failedLabels,
   selectedEnvironmentIds,
   wide = false,
+  manualRefreshPending = false,
 }: {
   readonly now: number;
   readonly failedLabels: readonly string[];
   readonly selectedEnvironmentIds: ReadonlySet<EnvironmentId> | null;
   readonly wide?: boolean;
+  readonly manualRefreshPending?: boolean;
 }) {
   const presentations = useAtomValue(environmentPresentations.presentationsWithProvidersAtom);
   const selected =
@@ -493,7 +495,7 @@ export function UsageLimitsSection({
   const gt = useGT();
   return (
     <View className="gap-6">
-      <CmaUsageAccountsSection accounts={cmaAccounts} />
+      <CmaUsageAccountsSection accounts={cmaAccounts} manualRefreshPending={manualRefreshPending} />
       {pools.length === 0 &&
       cmaAccounts.length === 0 &&
       notices.length === 0 &&

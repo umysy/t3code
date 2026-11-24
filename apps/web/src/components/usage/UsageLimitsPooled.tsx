@@ -676,9 +676,11 @@ function PoolSection({ pool, now }: { readonly pool: LimitPool; readonly now: nu
 export function UsageLimitsPooled({
   presentations,
   now,
+  manualRefreshPending = false,
 }: {
   readonly presentations: Parameters<typeof collectLimitAccounts>[0];
   readonly now: number;
+  readonly manualRefreshPending?: boolean;
 }) {
   const gt = useGT();
   const m = useMessages();
@@ -690,7 +692,11 @@ export function UsageLimitsPooled({
   const externalLinks = collectExternalUsageLinks(presentations, m);
   return (
     <div className="flex flex-col gap-8">
-      <CmaAccountsSection accounts={accounts} now={now} />
+      <CmaAccountsSection
+        accounts={accounts}
+        now={now}
+        manualRefreshPending={manualRefreshPending}
+      />
       {selectCmaUsageAccounts(accounts).length === 0 &&
       pools.length === 0 &&
       notices.length === 0 &&
