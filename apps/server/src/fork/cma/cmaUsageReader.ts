@@ -5,7 +5,7 @@ import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 // @effect-diagnostics deterministicKeys:off globalDate:off globalJsonInEffect:off
 
-import * as ProcessRunner from "../processRunner.ts";
+import * as ProcessRunner from "../../processRunner.ts";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 
 export type CmaUsageWindowId = "primary" | "secondary";
