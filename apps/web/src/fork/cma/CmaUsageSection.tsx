@@ -32,7 +32,7 @@ function CmaValue({ value }: { readonly value: string | boolean | undefined }) {
 
 function CmaRow({ label, children }: { readonly label: string; readonly children: ReactNode }) {
   return (
-    <div className="grid grid-cols-[6rem_minmax(0,1fr)] gap-x-3">
+    <div className="grid grid-cols-[8rem_minmax(0,1fr)] gap-x-3">
       <span className="text-muted-foreground">{label}</span>
       <span className="min-w-0 text-foreground tabular-nums">{children}</span>
     </div>
@@ -58,6 +58,7 @@ function CmaAccountHeader({ account }: { readonly account: LimitAccount }) {
                 ariaLabel={gt("Toggle account email visibility")}
                 revealTooltip={gt("Click to reveal email")}
                 hideTooltip={gt("Click to hide email")}
+                className="text-sm font-medium text-foreground"
               />
             ) : (
               <h3 className="truncate text-sm font-medium text-foreground">
@@ -113,10 +114,11 @@ function CmaAccountCard({
         </p>
       ) : null}
 
+      <p className="text-2xs text-muted-foreground">
+        {gt("Observed")}:{" "}
+        {formatUpcomingTimestamp(account.limits.checkedAt, timestampFormat, now, undefined, m)}
+      </p>
       <div className="grid gap-x-6 gap-y-1 text-xs md:grid-cols-2">
-        <CmaRow label={gt("Observed")}>
-          {formatUpcomingTimestamp(account.limits.checkedAt, timestampFormat, now, undefined, m)}
-        </CmaRow>
         {account.limits.windows.map((window) => (
           <CmaRow key={window.id} label={window.label}>
             <span>{gt("{remaining}% left", { remaining: remainingPercent(window) })}</span>
@@ -244,7 +246,7 @@ function CmaAccountsChart({
                         {gt("{remaining}% left", { remaining })}
                       </span>
                     </div>
-                    <div className="h-5 overflow-hidden rounded-md bg-muted">
+                    <div className="h-5 overflow-hidden rounded-md bg-muted ring-1 ring-inset ring-border/40">
                       <div
                         className="h-full rounded-md opacity-35"
                         style={{ width: `${remaining}%`, backgroundColor: codexBarColor }}
