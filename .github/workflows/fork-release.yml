@@ -24,16 +24,8 @@ jobs:
         with:
           ref: ${{ github.ref }}
 
-      - name: Install Vite+
-        shell: bash
-        run: |
-          set -euo pipefail
-          npm install --global vite-plus@1.4.0
-          vp env use 26.13.1
-
-      - name: Install dependencies
-        shell: bash
-        run: vp i
+      - name: Setup dependencies
+        uses: ./.github/actions/setup-ci-deps
 
       - name: Validate version
         shell: bash
@@ -74,7 +66,6 @@ jobs:
     needs: windows
     runs-on: ubuntu-latest
     permissions:
-      actions: read
       contents: write
     env:
       GH_TOKEN: ${{ github.token }}
