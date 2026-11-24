@@ -21,6 +21,11 @@ import {
 import * as DateTime from "effect/DateTime";
 
 import { isLocalLoopbackHost, isWildcardHost } from "./hostClassification.ts";
+import {
+  isCmaSource,
+  mergeCmaAccountMetadata,
+  type CmaLimitAccountMetadata,
+} from "./forkCmaUsage.ts";
 
 const MINUTE = 60_000;
 
@@ -289,17 +294,12 @@ function hubIdentity(environmentId: EnvironmentId, source: UsageLimitSourceSnaps
   return endpoint && !local ? endpoint : `${environmentId}:${source.id}`;
 }
 
-export interface LimitAccount {
+export interface LimitAccount extends CmaLimitAccountMetadata {
   readonly key: string;
   readonly driver: ServerProvider["driver"];
   readonly displayName: string | null;
   readonly email: string | undefined;
   readonly plan: string | undefined;
-  readonly enabled: boolean;
-  readonly current: boolean | undefined;
-  readonly subscription: UsageLimitSourceAccount["subscription"];
-  readonly sourceKind: UsageLimitSourceSnapshot["kind"] | undefined;
-  readonly sourceError: string | undefined;
   readonly accentColor: string | undefined;
   readonly environments: ReadonlyArray<{
     readonly environmentId: EnvironmentId;
@@ -385,19 +385,13 @@ export function collectLimitAccounts(presentations: LimitPresentations): readonl
     const displayName = previous.displayName ?? next.displayName;
     accounts.set(key, {
       ...previous,
+      ...mergeCmaAccountMetadata(previous, next, winner),
       displayName:
         hubEmail &&
         displayName?.toLowerCase() === PROVIDER_DISPLAY_NAMES[previous.driver]?.toLowerCase()
           ? null
           : displayName,
       plan: planSources.get(key)?.plan ?? previous.plan ?? next.plan,
-      enabled: winner.enabled,
-      current: winner.current ?? previous.current ?? next.current,
-      subscription: winner.subscription ?? previous.subscription ?? next.subscription,
-      sourceKind: winner.sourceKind ?? previous.sourceKind ?? next.sourceKind,
-      sourceError:
-        winner.sourceError ??
-        (winner.sourceKind === "cma" ? undefined : (previous.sourceError ?? next.sourceError)),
       accentColor: previous.accentColor ?? next.accentColor,
       environments,
       sourceLabel: environments.length > 0 ? null : (previous.sourceLabel ?? next.sourceLabel),
@@ -443,9 +437,9 @@ export function collectLimitAccounts(presentations: LimitPresentations): readonl
         ? `${presentation.entry.target.label} · ${source.label}`
         : source.label;
       for (const account of source.accounts) {
-        if (source.kind !== "cma" && limitsNotice(account.usageLimits) !== null) continue;
+        if (!isCmaSource(source) && limitsNotice(account.usageLimits) !== null) continue;
         // CMA's stable account id is the identity even when two managed accounts share an email.
-        const resolved = source.kind === "cma" ? null : resolveKey(account);
+        const resolved = isCmaSource(source) ? null : resolveKey(account);
         // A resolved account already has an identity; its public key must stay distinct from others'.
         const hub = resolved ? `${environmentId}:${source.id}` : hubIdentity(environmentId, source);
         const key = `${hub}:${account.id}${account.workspaceId ? `:${account.workspaceId}` : ""}`;
@@ -990,8 +984,7 @@ export function collectProviderUsageLimits(
   if (drivers.size === 0) drivers.add(selected.driver);
   const hasCmaAccount = shownHubs.some(
     (source) =>
-      source.kind === "cma" &&
-      source.accounts.some((account) => account.driver === selected.driver),
+      isCmaSource(source) && source.accounts.some((account) => account.driver === selected.driver),
   );
   if (
     !hasCmaAccount &&
@@ -1099,10 +1092,9 @@ export function collectProviderUsageLimits(
   }
   for (const source of shownHubs) {
     const matching = source.accounts.filter(routes);
-    const displayAccounts =
-      source.kind === "cma"
-        ? source.accounts.filter((account) => account.driver === selected.driver)
-        : matching;
+    const displayAccounts = isCmaSource(source)
+      ? source.accounts.filter((account) => account.driver === selected.driver)
+      : matching;
     for (const account of displayAccounts) {
       const key = resolveKey(account);
       if (key && nativeAccountKeys.has(key)) continue;
@@ -1112,7 +1104,7 @@ export function collectProviderUsageLimits(
         label: `${source.label} · ${hubAccountName(account)}`,
         sourceKind: source.kind,
         ...(source.error ? { sourceError: source.error } : {}),
-        sourceLabel: source.kind === "cma" ? source.label : "CLI Proxy",
+        sourceLabel: isCmaSource(source) ? source.label : "CLI Proxy",
         enabled: account.enabled ?? true,
         ...(account.current === undefined ? {} : { current: account.current }),
         ...(account.usageLimits.resetCredits?.nextCreditId
