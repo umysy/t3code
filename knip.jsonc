@@ -38,6 +38,8 @@
         "mobile-native-client.ts",
         // e2e loads its config and the scenarios by path, and starts the app script.
         "e2e.config.ts",
+        // Regenerates the fork Android icons; run by hand.
+        "fork-icons.ts",
         "prove-scenario.ts",
         "scenarios/*.ts",
         "setup-worktree.ts",
@@ -123,7 +125,6 @@
         "fingerprint.config.js",
         "plugins/*.cjs",
         "plugins/fork/*.cjs",
-        "scripts/fork-icons.ts",
         "scripts/generate-device-stream.mts",
         "src/features/devices/device-stream.browser.ts!",
         "src/features/browser/preview-stream.browser.ts!",
