@@ -1,3 +1,4 @@
+import * as Application from "expo-application";
 import Constants from "expo-constants";
 import { useGT } from "gt-react-native";
 import { useEffect, useRef, useState } from "react";
@@ -8,7 +9,8 @@ import { SettingsRow } from "../../features/settings/components/SettingsRow";
 import { fetchForkRelease, isForkUpdateAvailable, type ForkRelease } from "./forkUpdate.logic";
 
 const repository = Constants.expoConfig?.extra?.fork?.updateRepository;
-const currentVersion = () => Constants.expoConfig?.version ?? "0.0.0";
+// The installed APK's versionName; the bundled JS config can carry a different version.
+const currentVersion = () => Application.nativeApplicationVersion ?? "0.0.0";
 
 function showForkUpdate(gt: ReturnType<typeof useGT>, release: ForkRelease): void {
   Dialog.confirm({

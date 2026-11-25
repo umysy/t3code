@@ -64,6 +64,12 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    # Gradle re-reads app.config.ts when it bundles JS, so prebuild and assemble need the same env.
+    env:
+      APP_VARIANT: production
+      T3CODE_MOBILE_VERSION: ${{ inputs.version }}
+      EXPO_NO_GIT_STATUS: 1
+      T3CODE_MOBILE_UPDATES_ENABLED: "0"
     steps:
       - name: Checkout dispatched ref
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
@@ -96,11 +102,6 @@ jobs:
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/fork.keystore"
       - name: Prebuild Android
         working-directory: apps/mobile
-        env:
-          APP_VARIANT: production
-          T3CODE_MOBILE_VERSION: ${{ inputs.version }}
-          EXPO_NO_GIT_STATUS: 1
-          T3CODE_MOBILE_UPDATES_ENABLED: "0"
         run: vp exec expo prebuild --platform android --clean --no-install
       - name: Assemble signed APK
         working-directory: apps/mobile/android

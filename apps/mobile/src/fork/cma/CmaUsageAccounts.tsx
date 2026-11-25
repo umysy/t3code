@@ -343,6 +343,7 @@ export function CmaUsageAccountsSection({
           onSelect={setView}
           size="compact"
           role="tab"
+          className="w-36"
         />
       </View>
       {showRefreshHint ? (

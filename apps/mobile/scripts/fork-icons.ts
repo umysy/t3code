@@ -37,6 +37,7 @@ await badge(
   path.join(mobileRoot, "assets/android-icon-foreground.png"),
   path.join(outputDir, "android-adaptive-foreground.png"),
   1024,
-  150,
-  187,
+  160,
+  // Keeps the badge inside the circular launcher mask (radius ~33% of the canvas).
+  255,
 );
