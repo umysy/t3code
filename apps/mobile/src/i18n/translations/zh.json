@@ -5399,5 +5399,9 @@
   "318056000cd94556": "Will not renew",
   "aacbe3a7f7a5b710": "Codex accounts",
   "48095d4067502f2a": "CMA 每 5 分钟最多只能读取一次账号数据",
-  "f3dccf6e19d563c4": "更新于 {date}"
+  "f3dccf6e19d563c4": "更新于 {date}",
+  "132b21b672824737": "无法检查更新",
+  "1868706d455d1c1c": "T3 Code Fork {version} 已可用",
+  "33462ddd3319543d": "要下载最新的 fork 版本吗？",
+  "5004547dc22a40db": "下载"
 }

@@ -5394,5 +5394,9 @@
   "318056000cd94556": "Will not renew",
   "aacbe3a7f7a5b710": "Codex accounts",
   "48095d4067502f2a": "CMA can read account data at most once every 5 minutes",
-  "f3dccf6e19d563c4": "Updated {date}"
+  "f3dccf6e19d563c4": "{date}에 업데이트됨",
+  "132b21b672824737": "업데이트를 확인할 수 없습니다",
+  "1868706d455d1c1c": "T3 Code Fork {version}을(를) 사용할 수 있습니다",
+  "33462ddd3319543d": "최신 포크 릴리스를 다운로드할까요?",
+  "5004547dc22a40db": "다운로드"
 }

@@ -5414,5 +5414,9 @@
   "318056000cd94556": "Will not renew",
   "aacbe3a7f7a5b710": "Codex accounts",
   "48095d4067502f2a": "CMA can read account data at most once every 5 minutes",
-  "f3dccf6e19d563c4": "Updated {date}"
+  "f3dccf6e19d563c4": "Aktualisiert {date}",
+  "132b21b672824737": "Suche nach Updates fehlgeschlagen",
+  "1868706d455d1c1c": "T3 Code Fork {version} ist verfügbar",
+  "33462ddd3319543d": "Die neueste Fork-Version herunterladen?",
+  "5004547dc22a40db": "Herunterladen"
 }

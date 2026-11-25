@@ -20,6 +20,7 @@ import {
 import { SettingsRow } from "./components/SettingsRow";
 import { SettingsSection } from "./components/SettingsSection";
 import { SettingsScreen } from "./components/SettingsScreen";
+import { ForkUpdateRow } from "../../fork/update/ForkUpdateCheck";
 
 export function SettingsAboutRouteScreen() {
   const gt = useGT();
@@ -141,6 +142,7 @@ function AppSettingsSection() {
         target="SettingsOpenSourceLicenses"
       />
       <SettingsRow icon="doc.text" label={gt("Legal")} fullScreenTarget="SettingsLegal" />
+      {Constants.expoConfig?.extra?.fork ? <ForkUpdateRow /> : null}
       {updateCheckAvailable ? (
         <Pressable
           accessibilityLabel={gt("Version {version}", { version: versionLabel })}

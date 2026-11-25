@@ -109,6 +109,7 @@ import {
 import { pruneNewTaskFlowStates } from "./features/threads/new-task-flow-state";
 import { pruneNewTaskBranchCheckouts } from "./features/threads/NewTaskDraftRouteScreen";
 import { installAppUpdateChecks } from "./features/updates/app-updates";
+import { ForkUpdateLaunchCheck } from "./fork/update/ForkUpdateCheck";
 
 import "../global.css";
 
@@ -300,6 +301,7 @@ function AppContent() {
   return (
     <>
       <SplashScreenCoordinator />
+      <ForkUpdateLaunchCheck />
       <QuickActionsLanguage />
       <SubscriptionUsageCoordinator />
       <ConnectDeviceApprovalCoordinator />
