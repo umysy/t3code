@@ -54,7 +54,7 @@ The fork keeps features in fork-owned directories and connects them through smal
 | [scripts/dev-runner.ts](../../scripts/dev-runner.ts)                                                                                   | `T3CODE_ENVIRONMENT_ROLE`, `acquireDevSessionLock`, Windows help text | Dev role, session lock, memory cap  |
 | [scripts/lib/dev-memory-limit.ts](../../scripts/lib/dev-memory-limit.ts)                                                               | `readWindowsProcessTreeBytes` via PowerShell                          | Enforce dev memory cap on Windows   |
 | [scripts/scenarios/start-app.ts](../../scripts/scenarios/start-app.ts)                                                                 | Sets `T3CODE_ENVIRONMENT_ROLE: "test"`                                | Mark scenario servers as test       |
-| [knip.jsonc](../../knip.jsonc)                                                                                                         | Ignores `plugins/fork/*.cjs` and `scripts/fork-icons.ts`              | Keep fork entry points unflagged    |
+| [knip.jsonc](../../knip.jsonc)                                                                                                         | Registers `plugins/fork/*.cjs` and `scripts/fork-icons.ts` as entries | Keep fork entry points unflagged    |
 | [AGENTS.md](../../AGENTS.md)                                                                                                           | `## Agent skills` section                                             | Point agents to fork docs           |
 | [docs/operations/release.md](../../docs/operations/release.md)                                                                         | Updates documented Windows file limit from 80 to 100                  | Match `build-desktop-artifact.ts`   |
 
@@ -71,7 +71,7 @@ The hourly [fork-upstream-check.yml](../../.github/workflows/fork-upstream-check
 5. Regenerate i18n keys with `vp run i18n:generate` and translate any new keys in every locale under `apps/web/src/i18n/translations` and `apps/mobile/src/i18n/translations`.
 6. Run `vp run check:changed` and the fork unit tests.
 7. Verify the build in a separate **test environment**, never in the development or live environment.
-8. Push `fork/main` only with the owner's approval.
+8. Push `fork/main` only with the owner's approval. The rebase rewrites history, so push with `git push --force-with-lease origin fork/main`.
 9. Dispatch [fork-release.yml](../../.github/workflows/fork-release.yml) with version `X.Y.Z-fork.1`.
 10. Inspect the generated draft GitHub release and its Windows/Android artifacts.
 11. Publish the release only when the owner says "发布".
