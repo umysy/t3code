@@ -4,7 +4,7 @@ import { forkVersionCode } from "./appConfig";
 
 it("encodes fork versions as Android version codes", () => {
   expect(forkVersionCode("0.1.12-fork.3")).toBe(101203);
-  expect(forkVersionCode("12.34.56-fork.78")).toBe(123456078);
+  expect(forkVersionCode("12.34.56-fork.78")).toBe(123405678);
 });
 
 it("rejects components outside the version code range", () => {
