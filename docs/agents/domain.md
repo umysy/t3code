@@ -5,6 +5,7 @@ How the engineering skills should consume this repo's domain documentation when 
 ## Before exploring, read these
 
 - **`docs/fork/GLOSSARY.md`**: the language for maintaining this fork (fork feature, fork hook, official release, fork update, and so on).
+- **`docs/fork/MAINTENANCE.md`**: what the fork carries, where fork hooks live, and how to sync an official release.
 - **`docs/fork/adr/`**: decisions about how the fork is built, released, and kept in step with official releases.
 
 Official T3 Code has no root glossary. Its shared vocabulary is in `docs/internals/glossary.md`; read it for product terms.
