@@ -28,9 +28,7 @@ Promote a change only after the focused tests, the affected package typecheck, a
 
 ## Upstream updates
 
-When the official T3 fork changes, update the upstream base first, replay the custom feature commits, then run the same focused checks and Usage verification. Resolve conflicts at the adapter and client boundaries before changing official core behavior. Treat any required core change as a reviewed exception and record it with the promotion.
-
-The dev runner prevents two modes from sharing one workspace and releases the workspace lock when the runner scope ends. On Windows it also samples the development process tree every 30 seconds and stops the stack when it exceeds the configured memory limit.
+Follow [docs/fork/MAINTENANCE.md](../fork/MAINTENANCE.md#4-syncing-an-official-release) when syncing the fork with a new official release.
 
 ## Core exceptions
 
