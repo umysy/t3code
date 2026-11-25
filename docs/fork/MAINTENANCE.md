@@ -20,7 +20,7 @@ How to maintain `umysy/t3code` and update it to each new [official release](GLOS
 - [apps/mobile/fork/appConfig.ts](../../apps/mobile/fork/appConfig.ts)
 - [apps/mobile/plugins/fork/](../../apps/mobile/plugins/fork/)
 - [apps/mobile/assets/fork/](../../apps/mobile/assets/fork/)
-- [apps/mobile/scripts/fork-icons.ts](../../apps/mobile/scripts/fork-icons.ts)
+- [scripts/fork-icons.ts](../../scripts/fork-icons.ts)
 - [packages/shared/src/forkCmaUsage.ts](../../packages/shared/src/forkCmaUsage.ts)
 - [scripts/lib/dev-session-lock.ts](../../scripts/lib/dev-session-lock.ts)
 - [.github/workflows/fork-\*.yml](../../.github/workflows/)
@@ -54,7 +54,7 @@ The fork keeps features in fork-owned directories and connects them through smal
 | [scripts/dev-runner.ts](../../scripts/dev-runner.ts)                                                                                   | `T3CODE_ENVIRONMENT_ROLE`, `acquireDevSessionLock`, Windows help text | Dev role, session lock, memory cap  |
 | [scripts/lib/dev-memory-limit.ts](../../scripts/lib/dev-memory-limit.ts)                                                               | `readWindowsProcessTreeBytes` via PowerShell                          | Enforce dev memory cap on Windows   |
 | [scripts/scenarios/start-app.ts](../../scripts/scenarios/start-app.ts)                                                                 | Sets `T3CODE_ENVIRONMENT_ROLE: "test"`                                | Mark scenario servers as test       |
-| [knip.jsonc](../../knip.jsonc)                                                                                                         | Registers `plugins/fork/*.cjs` and `scripts/fork-icons.ts` as entries | Keep fork entry points unflagged    |
+| [knip.jsonc](../../knip.jsonc)                                                                                                         | Registers `plugins/fork/*.cjs` as entries                             | Keep fork entry points unflagged    |
 | [AGENTS.md](../../AGENTS.md)                                                                                                           | `## Agent skills` section                                             | Point agents to fork docs           |
 | [docs/operations/release.md](../../docs/operations/release.md)                                                                         | Updates documented Windows file limit from 80 to 100                  | Match `build-desktop-artifact.ts`   |
 
