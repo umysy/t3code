@@ -56,7 +56,6 @@ The fork keeps features in fork-owned directories and connects them through smal
 | [scripts/scenarios/start-app.ts](../../scripts/scenarios/start-app.ts)                                                                 | Sets `T3CODE_ENVIRONMENT_ROLE: "test"`                                | Mark scenario servers as test       |
 | [knip.jsonc](../../knip.jsonc)                                                                                                         | Registers `plugins/fork/*.cjs` as entries                             | Keep fork entry points unflagged    |
 | [AGENTS.md](../../AGENTS.md)                                                                                                           | `## Agent skills` section                                             | Point agents to fork docs           |
-| [docs/operations/release.md](../../docs/operations/release.md)                                                                         | Updates documented Windows file limit from 80 to 100                  | Match `build-desktop-artifact.ts`   |
 
 The i18n translation catalogs (`apps/{web,mobile}/src/i18n/translations/*.json`) also carry fork-specific keys.
 
@@ -68,7 +67,7 @@ The hourly [fork-upstream-check.yml](../../.github/workflows/fork-upstream-check
 2. Find the old official base commit (the last official commit below the first fork commit in `git log --first-parent`), then rebase `fork/main` in a dev worktree: `git rebase --onto vX.Y.Z <old-official-base> fork/main`.
 3. Resolve any conflicts at the fork hook points listed in Section 3. Drop any superseded change or conflicting dev tooling rather than carrying dead weight.
 4. Re-check `WINDOWS_PACKAGED_PAYLOAD_FILE_LIMIT` (see [custom-fork-promotion.md](../operations/custom-fork-promotion.md#core-exceptions)).
-5. Regenerate i18n keys with `vp run i18n:generate` and translate any new keys in every locale under `apps/web/src/i18n/translations` and `apps/mobile/src/i18n/translations`.
+5. Regenerate i18n keys with `vp run --filter @t3tools/web i18n:generate` and `vp run --filter @t3tools/mobile i18n:generate` and translate any new keys in every locale under `apps/web/src/i18n/translations` and `apps/mobile/src/i18n/translations`.
 6. Run `vp run check:changed` and the fork unit tests.
 7. Verify the build in a separate **test environment**, never in the development or live environment.
 8. Push `fork/main` only with the owner's approval. The rebase rewrites history, so push with `git push --force-with-lease origin fork/main`.

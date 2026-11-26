@@ -189,7 +189,7 @@ export const UsageLimitsReport = Schema.Struct({
       enabled: Schema.optional(Schema.Boolean),
       current: Schema.optional(Schema.Boolean),
       subscription: Schema.optional(UsageLimitSourceSubscription),
-      sourceKind: Schema.optional(Schema.Literals(["cliproxy", "cma"])),
+      sourceKind: Schema.optional(Schema.Literals(["cliproxy", "http", "cma"])),
       sourceError: Schema.optional(TrimmedNonEmptyString),
       sourceLabel: Schema.optional(TrimmedNonEmptyString),
       instanceId: Schema.optional(ProviderInstanceId),
