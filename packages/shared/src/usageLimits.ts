@@ -277,7 +277,8 @@ const hubRowKey = (
   source: UsageLimitSourceSnapshot,
   account: UsageLimitSourceAccount,
 ) =>
-  resolveKey(account) ??
+  // fork: CMA's stable account id is the identity even when two managed accounts share an email.
+  (isCmaSource(source) ? null : resolveKey(account)) ??
   `${hubIdentity(environmentId, source)}:${account.id}${account.workspaceId ? `:${account.workspaceId}` : ""}`;
 
 // Source ids are environment-local, so only a remote endpoint names the same hub across environments.
