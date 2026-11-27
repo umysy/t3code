@@ -1,6 +1,8 @@
 # Product usage data and diagnostics
 
-T3 Code sends lightweight product usage events and relay connection traces to keep the app reliable and fast. Prompts, responses, file contents, and credentials are never included (unless you explicitly approve an [agent feedback](#agent-feedback) card with conversation text attached).
+> **Fork note:** In this fork, product usage events, relay connection tracing, and mobile crash/connection diagnostics are **off by default**. To turn server product analytics and relay tracing on explicitly, set `T3CODE_TELEMETRY_ENABLED=true` (on mobile, turn on the toggles under **Settings → About T3 Code → Diagnostics**). `DO_NOT_TRACK=1` still overrides `T3CODE_TELEMETRY_ENABLED=true`.
+
+When enabled, T3 Code sends lightweight product usage events and relay connection traces to keep the app reliable and fast. Prompts, responses, file contents, and credentials are never included (unless you explicitly approve an [agent feedback](#agent-feedback) card with conversation text attached).
 
 ## Product usage events
 
@@ -15,7 +17,7 @@ The server sends usage events to `ingest.t3.codes` under a hashed random install
 
 ## Relay connection diagnostics
 
-T3 Connect sends connection timings, request paths, environment/thread IDs, and error types (no addresses, logs, or stack frames) to Axiom. Disabled by the server telemetry opt-outs above or by `T3CODE_OTEL_SDK_DISABLED` / `OTEL_SDK_DISABLED`.
+When enabled, T3 Connect sends connection timings, request paths, environment/thread IDs, and error types (no addresses, logs, or stack frames) to Axiom. In this fork it is off by default; enable with `T3CODE_TELEMETRY_ENABLED=true`, or disable with `T3CODE_TELEMETRY_ENABLED=false`, `DO_NOT_TRACK=1`, `T3CODE_OTEL_SDK_DISABLED`, or `OTEL_SDK_DISABLED`.
 
 ## Agent feedback
 

@@ -21,17 +21,47 @@ const tracesTo = (policy?: ManagedPolicyDocument) =>
     Effect.map(Option.isSome),
   );
 
-it.effect("a policy with telemetry off stops relay tracing to T3 Connect", () =>
-  Effect.gen(function* () {
-    assert.isTrue(yield* tracesTo());
-    assert.isFalse(
-      yield* tracesTo({
-        schemaVersion: 1,
-        organization: "Example Corp",
-        limits: { telemetry: false },
-      }),
-    );
-  }),
+const exportCallsFor = (environment: NodeJS.ProcessEnv) => {
+  const fetchFn = vi.fn<typeof fetch>(async () => new Response(null, { status: 202 }));
+  return Effect.void.pipe(
+    Effect.withSpan("relay.request"),
+    RelayTracing.withRelayClientTracing,
+    Layer.effectDiscard,
+    Layer.provide(
+      relayLayer(
+        { serviceName: "t3code-server", runtime: "node", client: "environment-server" },
+        { tracesUrl: "https://traces.example.com", tracesDataset: "relay", tracesToken: "token" },
+      ),
+    ),
+    Layer.provide(ManagedPolicy.layerTest()),
+    Layer.provide(Layer.succeed(HostProcess.Environment, environment)),
+    Layer.provide(FetchHttpClient.layer),
+    Layer.provide(Layer.succeed(FetchHttpClient.Fetch, fetchFn)),
+    Layer.build,
+    Effect.scoped,
+    Effect.andThen(Effect.sync(() => fetchFn.mock.calls.length)),
+  );
+};
+
+it.effect(
+  "is off by default and a policy with telemetry off stops relay tracing to T3 Connect",
+  () =>
+    Effect.gen(function* () {
+      assert.strictEqual(yield* exportCallsFor({}), 0);
+      assert.strictEqual(yield* exportCallsFor({ T3CODE_TELEMETRY_ENABLED: "true" }), 1);
+      assert.strictEqual(
+        yield* exportCallsFor({ T3CODE_TELEMETRY_ENABLED: "true", DO_NOT_TRACK: "1" }),
+        0,
+      );
+      assert.isTrue(yield* tracesTo());
+      assert.isFalse(
+        yield* tracesTo({
+          schemaVersion: 1,
+          organization: "Example Corp",
+          limits: { telemetry: false },
+        }),
+      );
+    }),
 );
 
 it.effect("relay tracing waits for the desktop shell's telemetry opt-out", () => {
@@ -66,7 +96,10 @@ it.effect("relay tracing waits for the desktop shell's telemetry opt-out", () =>
 });
 
 it("reports the server's relay tracing policy to clients", () => {
-  assert.isTrue(allowedFor({}, undefined));
+  // fork: relay tracing defaults to off unless T3CODE_TELEMETRY_ENABLED=true
+  assert.isFalse(allowedFor({}, undefined));
+  assert.isTrue(allowedFor({ T3CODE_TELEMETRY_ENABLED: "true" }, undefined));
+  assert.isFalse(allowedFor({ T3CODE_TELEMETRY_ENABLED: "true", DO_NOT_TRACK: "1" }, undefined));
   assert.isFalse(allowedFor({ T3CODE_TELEMETRY_ENABLED: "false" }, undefined));
   assert.isFalse(allowedFor({ CI: "true" }, undefined));
   assert.isTrue(allowedFor({ CI: "true", T3CODE_TELEMETRY_ENABLED: "true" }, undefined));

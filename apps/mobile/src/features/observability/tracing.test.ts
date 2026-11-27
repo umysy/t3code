@@ -7,7 +7,7 @@ import { vi } from "vite-plus/test";
 import { layerRemoteHttpClient } from "@t3tools/client-runtime/rpc";
 import { withRelayClientTracing } from "@t3tools/shared/relayTracing";
 
-import { setConnectionTracesEnabled } from "./diagnosticsSetting";
+import { connectionTracesEnabled, setConnectionTracesEnabled } from "./diagnosticsSetting";
 import * as Tracing from "./tracing";
 
 vi.mock("expo-constants", () => ({
@@ -31,6 +31,10 @@ const layerTracingTo = (fetchFn: typeof fetch) =>
       serviceVersion: "1.2.3",
     },
   ).pipe(Layer.provide(layerRemoteHttpClient(fetchFn)));
+
+it("defaults connection traces to off before opt-in", () => {
+  expect(connectionTracesEnabled()).toBe(false);
+});
 
 it.effect.each([false, true])("gates relay sends and preserves typed failures (%s)", (enabled) => {
   setConnectionTracesEnabled(enabled);

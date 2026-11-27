@@ -66,6 +66,18 @@ it("product opt-out disables relay tracing with either built-in or runtime crede
     T3CODE_OTEL_SDK_DISABLED: "false",
   };
 
+  assert.equal(resolveRelayClientTracingConfig({}, fallback), null);
+  assert.deepEqual(
+    resolveRelayClientTracingConfig({ T3CODE_TELEMETRY_ENABLED: "true" }, fallback),
+    fallback,
+  );
+  assert.equal(
+    resolveRelayClientTracingConfig(
+      { T3CODE_TELEMETRY_ENABLED: "true", DO_NOT_TRACK: "1" },
+      fallback,
+    ),
+    null,
+  );
   assert.equal(resolveRelayClientTracingConfig(env, fallback), null);
   assert.equal(
     resolveRelayClientTracingConfig(

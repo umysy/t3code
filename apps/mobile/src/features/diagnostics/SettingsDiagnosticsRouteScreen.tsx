@@ -1,3 +1,4 @@
+import { isTelemetryEnabledByDefault } from "@t3tools/shared/fork/telemetryDefault";
 import { AppActivityIndicator } from "../../components/ui/AppActivityIndicator";
 import { ScreenScrollView as ScrollView } from "../../components/ui/ScreenScrollView";
 import * as Application from "expo-application";
@@ -167,8 +168,9 @@ function CrashReportsSetting() {
   const gt = useGT();
   const ready = AsyncResult.isSuccess(preferences) && !preferences.waiting;
   const enabled = AsyncResult.isSuccess(preferences)
-    ? preferences.value.crashReportsEnabled !== false
-    : true;
+    ? // fork: telemetry defaults to off unless explicitly enabled
+      (preferences.value.crashReportsEnabled ?? isTelemetryEnabledByDefault())
+    : isTelemetryEnabledByDefault();
 
   const change = (value: boolean) => {
     setSaving(true);

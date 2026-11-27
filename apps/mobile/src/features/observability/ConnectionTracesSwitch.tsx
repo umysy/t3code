@@ -3,6 +3,8 @@ import { AsyncResult } from "effect/reactivity";
 import { useGT } from "gt-react-native";
 import { useState } from "react";
 
+import { isTelemetryEnabledByDefault } from "@t3tools/shared/fork/telemetryDefault";
+
 import { mobilePreferencesAtom, saveMobilePreferences } from "../../state/preferences";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { SettingsSwitchRow } from "../settings/components/SettingsSwitchRow";
@@ -41,8 +43,9 @@ export function ConnectionTracesSwitch() {
   const gt = useGT();
   const ready = AsyncResult.isSuccess(preferences) && !preferences.waiting;
   const enabled = AsyncResult.isSuccess(preferences)
-    ? preferences.value.connectionTracesEnabled !== false
-    : true;
+    ? // fork: telemetry defaults to off unless explicitly enabled
+      (preferences.value.connectionTracesEnabled ?? isTelemetryEnabledByDefault())
+    : isTelemetryEnabledByDefault();
 
   const change = (value: boolean) => {
     setSaving(true);

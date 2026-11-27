@@ -33,3 +33,4 @@ Follow [docs/fork/MAINTENANCE.md](../fork/MAINTENANCE.md#4-syncing-an-official-r
 ## Core exceptions
 
 - `WINDOWS_PACKAGED_PAYLOAD_FILE_LIMIT` is 120 here, not the official 80. The fork release build on `windows-latest` counted 96 files in `win-unpacked` on v0.1.11 (server compile cache 29, server unpacked files 26, Electron 16, `@cursor/sdk` 11, other 14) and 106 on v0.1.12, so the official limit rejects it. Re-check this value after each upstream update and remove the exception if the official build stays within 80.
+- Product analytics, relay tracing, and mobile diagnostics default to off in this fork (`isTelemetryEnabledByDefault()` in `packages/shared/src/fork/telemetryDefault.ts`), rather than `!isCiEnvironment(...)` / opt-out. Explicit `T3CODE_TELEMETRY_ENABLED=true` still enables server and desktop telemetry unless `DO_NOT_TRACK=1` or a managed policy denies it.

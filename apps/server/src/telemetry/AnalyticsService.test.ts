@@ -328,14 +328,26 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("AnalyticsService
       }),
   );
 
-  it.effect("sends nothing on a CI runner unless the environment opts in", () =>
+  it.effect("sends nothing by default or on a CI runner unless the environment opts in", () =>
     Effect.gen(function* () {
-      const onCi = (telemetryEnv: Parameters<typeof analyticsLayerWith>[2]) =>
+      const withEnv = (
+        hostEnv: NodeJS.ProcessEnv,
+        telemetryEnv: Parameters<typeof analyticsLayerWith>[2],
+      ) =>
         sendFor(1, respondWithStatus(204), recordTwentyEvents, undefined, telemetryEnv).pipe(
-          Effect.provideService(HostProcess.Environment, { GITHUB_ACTIONS: "true" }),
+          Effect.provideService(HostProcess.Environment, hostEnv),
         );
-      assert.deepEqual(yield* onCi({}), []);
-      assert.equal((yield* onCi({ T3CODE_TELEMETRY_ENABLED: true })).length, 1);
+      assert.deepEqual(yield* withEnv({}, {}), []);
+      assert.equal((yield* withEnv({}, { T3CODE_TELEMETRY_ENABLED: true })).length, 1);
+      assert.deepEqual(
+        yield* withEnv({ DO_NOT_TRACK: "1" }, { T3CODE_TELEMETRY_ENABLED: true }),
+        [],
+      );
+      assert.deepEqual(yield* withEnv({ GITHUB_ACTIONS: "true" }, {}), []);
+      assert.equal(
+        (yield* withEnv({ GITHUB_ACTIONS: "true" }, { T3CODE_TELEMETRY_ENABLED: true })).length,
+        1,
+      );
     }),
   );
 

@@ -1,3 +1,5 @@
+import { isTelemetryEnabledByDefault } from "@t3tools/shared/fork/telemetryDefault";
+
 // Start off until the saved connection-traces preference loads.
 let sending = false;
 let changedSinceLoad = false;
@@ -12,7 +14,9 @@ export function setConnectionTracesEnabled(enabled: boolean): void {
 void import("../../persistence/imperative")
   .then(({ loadPreferences }) => loadPreferences())
   .then((preferences) => {
-    if (!changedSinceLoad) sending = preferences.connectionTracesEnabled !== false;
+    // fork: telemetry defaults to off unless explicitly enabled
+    if (!changedSinceLoad)
+      sending = preferences.connectionTracesEnabled ?? isTelemetryEnabledByDefault();
   })
   .catch((error: unknown) => {
     console.warn("[tracing] could not read the connection traces setting", error);

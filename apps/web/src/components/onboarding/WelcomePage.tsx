@@ -349,8 +349,13 @@ function TelemetryNotice({ environmentId }: { readonly environmentId: Environmen
   return (
     <p className="mt-auto pt-12 text-2xs leading-relaxed text-muted-foreground/70">
       {telemetryOff === undefined ? (
+        // fork: telemetry defaults to off in this build
         <T>
-          T3 Code collects anonymous usage data to improve the app. To opt out, see the{" "}
+          Anonymous usage data is off by default in this build. Set{" "}
+          <code>
+            <Var>{"T3CODE_TELEMETRY_ENABLED=true"}</Var>
+          </code>{" "}
+          to enable it, or see the{" "}
           <a
             className="underline decoration-current/40 underline-offset-2 hover:text-muted-foreground"
             href={PRIVACY_POLICY_URL}

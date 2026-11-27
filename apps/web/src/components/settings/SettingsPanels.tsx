@@ -2586,7 +2586,11 @@ export function AboutSettingsPanel() {
           {...setting("privacy-policy")}
           description={
             telemetryOff === undefined
-              ? gt("How we handle your data, including the anonymous usage data T3 Code collects.")
+              ? // fork: telemetry defaults to off in this build
+                gt(
+                  "How we handle your data. Anonymous usage data is off by default in this build and can be enabled with {envVar}.",
+                  { envVar: "T3CODE_TELEMETRY_ENABLED=true" },
+                )
               : gt("How we handle your data. {telemetryOff}", { telemetryOff })
           }
           control={

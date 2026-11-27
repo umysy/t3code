@@ -1,3 +1,4 @@
+import { isTelemetryEnabledByDefault } from "@t3tools/shared/fork/telemetryDefault";
 import Constants from "expo-constants";
 import { Observe } from "expo-observe";
 
@@ -53,7 +54,10 @@ if (!crashReportingAvailable) {
       (preferences) =>
         changedSinceLoad()
           ? undefined
-          : setCrashReportsEnabled(preferences.crashReportsEnabled !== false),
+          : // fork: telemetry defaults to off unless explicitly enabled
+            setCrashReportsEnabled(
+              preferences.crashReportsEnabled ?? isTelemetryEnabledByDefault(),
+            ),
       // Observe keeps the last choice it was given, which stands in for the unreadable one.
       (error: unknown) => console.warn("[observe] could not read the crash report setting", error),
     )
