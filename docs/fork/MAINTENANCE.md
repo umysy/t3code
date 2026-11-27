@@ -7,7 +7,7 @@ How to maintain `umysy/t3code` and update it to each new [official release](GLOS
 - **CMA usage**: reads and displays CMA account usage and subscription info on the Usage page (server, web, mobile).
 - **Environment role safety**: development and test servers refuse to start against `~/.t3/userdata`.
 - **Windows `pgrep` skip**: skips the POSIX `pgrep` busy check in Codex on `win32`.
-- **Windows payload limit**: raises `WINDOWS_PACKAGED_PAYLOAD_FILE_LIMIT` from `80` to `100`.
+- **Windows payload limit**: raises `WINDOWS_PACKAGED_PAYLOAD_FILE_LIMIT` from `80` to `120`.
 - **Dev tooling** (optional; drop if it conflicts): dev session lock, Windows dev memory limit, and Windows symlink test skip.
 - **Android fork app**: builds as "T3 Code Fork" (`com.umysy.t3codefork`) with self-hosted GitHub update checks.
 - **Fork release workflows**: automated [upstream check](../../.github/workflows/fork-upstream-check.yml) and [Windows/Android release](../../.github/workflows/fork-release.yml) pipelines.
@@ -50,7 +50,7 @@ The fork keeps features in fork-owned directories and connects them through smal
 | [apps/mobile/src/features/settings/SettingsAboutRouteScreen.tsx](../../apps/mobile/src/features/settings/SettingsAboutRouteScreen.tsx) | Renders `<ForkUpdateRow />` when `extra.fork` is set                  | Manual fork update check in About   |
 | [apps/mobile/src/features/usage/UsageRouteScreen.tsx](../../apps/mobile/src/features/usage/UsageRouteScreen.tsx)                       | Passes `manualRefreshPending={limits.refreshing}`                     | Show CMA refresh state on mobile    |
 | [apps/mobile/src/features/usage/UsageLimitsPooled.tsx](../../apps/mobile/src/features/usage/UsageLimitsPooled.tsx)                     | Renders `CmaAccountsSection` and checks CMA in empty state            | Display CMA accounts on mobile      |
-| [scripts/build-desktop-artifact.ts](../../scripts/build-desktop-artifact.ts)                                                           | Sets `WINDOWS_PACKAGED_PAYLOAD_FILE_LIMIT = 100`                      | Allow local Windows build size      |
+| [scripts/build-desktop-artifact.ts](../../scripts/build-desktop-artifact.ts)                                                           | Sets `WINDOWS_PACKAGED_PAYLOAD_FILE_LIMIT = 120`                      | Allow local Windows build size      |
 | [scripts/dev-runner.ts](../../scripts/dev-runner.ts)                                                                                   | `T3CODE_ENVIRONMENT_ROLE`, `acquireDevSessionLock`, Windows help text | Dev role, session lock, memory cap  |
 | [scripts/lib/dev-memory-limit.ts](../../scripts/lib/dev-memory-limit.ts)                                                               | `readWindowsProcessTreeBytes` via PowerShell                          | Enforce dev memory cap on Windows   |
 | [scripts/scenarios/start-app.ts](../../scripts/scenarios/start-app.ts)                                                                 | Sets `T3CODE_ENVIRONMENT_ROLE: "test"`                                | Mark scenario servers as test       |
