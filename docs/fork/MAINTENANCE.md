@@ -8,7 +8,7 @@ How to maintain `umysy/t3code` and update it to each new [official release](GLOS
 - **Environment role safety**: development and test servers refuse to start against `~/.t3/userdata`.
 - **Windows `pgrep` skip**: skips the POSIX `pgrep` busy check in Codex on `win32`.
 - **Windows payload limit**: raises `WINDOWS_PACKAGED_PAYLOAD_FILE_LIMIT` from `80` to `120`.
-- **Dev tooling** (optional; drop if it conflicts): dev session lock, Windows dev memory limit, and Windows symlink test skip.
+- **Dev tooling** (optional; drop if it conflicts): Windows dev memory limit and Windows symlink test skip.
 - **Android fork app**: builds as "T3 Code Fork" (`com.umysy.t3codefork`) with self-hosted GitHub update checks.
 - **Fork release workflows**: automated [upstream check](../../.github/workflows/fork-upstream-check.yml) and [Windows/Android release](../../.github/workflows/fork-release.yml) pipelines.
 - **Telemetry off by default**: product analytics, relay tracing, and mobile crash/connection diagnostics default to off unless explicitly enabled (`T3CODE_TELEMETRY_ENABLED=true` on server/desktop, or Diagnostics toggles on mobile).
@@ -24,7 +24,6 @@ How to maintain `umysy/t3code` and update it to each new [official release](GLOS
 - [scripts/fork-icons.ts](../../scripts/fork-icons.ts)
 - [packages/shared/src/forkCmaUsage.ts](../../packages/shared/src/forkCmaUsage.ts)
 - [packages/shared/src/fork/telemetryDefault.ts](../../packages/shared/src/fork/telemetryDefault.ts)
-- [scripts/lib/dev-session-lock.ts](../../scripts/lib/dev-session-lock.ts)
 - [.github/workflows/fork-\*.yml](../../.github/workflows/)
 - [docs/fork/](.)
 
@@ -56,6 +55,7 @@ The fork keeps features in fork-owned directories and connects them through smal
 | [apps/web/src/components/usage/UsageLimits.tsx](../../apps/web/src/components/usage/UsageLimits.tsx)                                                     | Forwards `manualRefreshPending` to pooled view                        | Thread refresh state to CMA         |
 | [apps/web/src/components/usage/UsageLimitsPooled.tsx](../../apps/web/src/components/usage/UsageLimitsPooled.tsx)                                         | Renders `CmaAccountsSection` and checks CMA in empty state            | Display CMA accounts on web         |
 | [apps/mobile/app.config.ts](../../apps/mobile/app.config.ts)                                                                                             | Wraps exported config in `applyForkAppConfig`                         | Set fork Android ID, name, icons    |
+| [apps/mobile/app.config.test.ts](../../apps/mobile/app.config.test.ts)                                                                                   | Expects fork Android ID and stripped App Links on production          | Match fork Android app identity     |
 | [apps/mobile/src/App.tsx](../../apps/mobile/src/App.tsx)                                                                                                 | Mounts `<ForkUpdateLaunchCheck />`                                    | Check fork releases on launch       |
 | [apps/mobile/src/features/diagnostics/SettingsDiagnosticsRouteScreen.tsx](../../apps/mobile/src/features/diagnostics/SettingsDiagnosticsRouteScreen.tsx) | Uses `isTelemetryEnabledByDefault` for crash reports toggle           | Mobile crash reports off by default |
 | [apps/mobile/src/features/observability/ConnectionTracesSwitch.tsx](../../apps/mobile/src/features/observability/ConnectionTracesSwitch.tsx)             | Uses `isTelemetryEnabledByDefault` for connection traces toggle       | Mobile tracing off by default       |
@@ -66,7 +66,7 @@ The fork keeps features in fork-owned directories and connects them through smal
 | [apps/mobile/src/features/usage/UsageRouteScreen.tsx](../../apps/mobile/src/features/usage/UsageRouteScreen.tsx)                                         | Passes `manualRefreshPending={limits.refreshing}`                     | Show CMA refresh state on mobile    |
 | [apps/mobile/src/features/usage/UsageLimitsPooled.tsx](../../apps/mobile/src/features/usage/UsageLimitsPooled.tsx)                                       | Renders `CmaAccountsSection` and checks CMA in empty state            | Display CMA accounts on mobile      |
 | [scripts/build-desktop-artifact.ts](../../scripts/build-desktop-artifact.ts)                                                                             | Sets `WINDOWS_PACKAGED_PAYLOAD_FILE_LIMIT = 120`                      | Allow local Windows build size      |
-| [scripts/dev-runner.ts](../../scripts/dev-runner.ts)                                                                                                     | `T3CODE_ENVIRONMENT_ROLE`, `acquireDevSessionLock`, Windows help text | Dev role, session lock, memory cap  |
+| [scripts/dev-runner.ts](../../scripts/dev-runner.ts)                                                                                                     | `T3CODE_ENVIRONMENT_ROLE`, Windows help text                          | Dev role and Windows memory cap     |
 | [scripts/lib/dev-memory-limit.ts](../../scripts/lib/dev-memory-limit.ts)                                                                                 | `readWindowsProcessTreeBytes` via PowerShell                          | Enforce dev memory cap on Windows   |
 | [scripts/scenarios/start-app.ts](../../scripts/scenarios/start-app.ts)                                                                                   | Sets `T3CODE_ENVIRONMENT_ROLE: "test"`                                | Mark scenario servers as test       |
 | [knip.jsonc](../../knip.jsonc)                                                                                                                           | Registers `plugins/fork/*.cjs` as entries                             | Keep fork entry points unflagged    |

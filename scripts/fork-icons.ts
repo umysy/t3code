@@ -1,3 +1,4 @@
+// @effect-diagnostics nodeBuiltinImport:off
 // oxlint-disable-next-line t3code/namespace-node-imports -- keep the script's Node dependencies explicit
 import { mkdir } from "node:fs/promises";
 // oxlint-disable-next-line t3code/namespace-node-imports -- keep the script's Node dependencies explicit
