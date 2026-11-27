@@ -215,6 +215,33 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("AnalyticsService
     }),
   );
 
+  it.effect("stays off by default and lets the desktop login shell opt in", () =>
+    Effect.gen(function* () {
+      const env: NodeJS.ProcessEnv = { T3CODE_DESKTOP_SHELL_DISCOVERY_PENDING: "1" };
+      const batches = yield* sendFor(
+        0,
+        respondWithStatus(204),
+        Effect.gen(function* () {
+          const analytics = yield* AnalyticsService.AnalyticsService;
+          yield* analytics.record("test.before-discovery");
+          yield* analytics.flush;
+          delete env.T3CODE_DESKTOP_SHELL_DISCOVERY_PENDING;
+          yield* analytics.record("test.default-off");
+          yield* analytics.flush;
+          env.T3CODE_TELEMETRY_ENABLED = "true";
+          yield* analytics.record("test.opted-in");
+          yield* analytics.flush;
+        }),
+        undefined,
+        {},
+      ).pipe(Effect.provideService(HostProcess.Environment, env));
+      assert.deepEqual(
+        batches.flat().map((event) => event.event),
+        ["test.opted-in"],
+      );
+    }),
+  );
+
   it.effect("sends nothing while DO_NOT_TRACK is set", () =>
     Effect.gen(function* () {
       const env: NodeJS.ProcessEnv = { DO_NOT_TRACK: "1" };

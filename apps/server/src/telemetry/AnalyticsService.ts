@@ -155,7 +155,11 @@ export const make = Effect.gen(function* () {
   const awaitingShellConsent = hostEnvironment.T3CODE_DESKTOP_SHELL_DISCOVERY_PENDING === "1";
   // fork: telemetry defaults to off unless explicitly enabled
   const enabledByDefault = isTelemetryEnabledByDefault(!isCiEnvironment(hostEnvironment));
-  const enabledAtStartup = Option.getOrElse(telemetryConfig.enabled, () => enabledByDefault);
+  // fork: with telemetry off by default, an unset value must still let the login shell opt in.
+  const enabledAtStartup = Option.getOrElse(
+    telemetryConfig.enabled,
+    () => enabledByDefault || awaitingShellConsent,
+  );
   // A managed policy can switch analytics off over the environment, never on.
   const policyAllows =
     ManagedPolicy.deniedBy(yield* ManagedPolicy.ManagedPolicy, "telemetry") === undefined;
