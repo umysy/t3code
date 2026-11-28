@@ -392,11 +392,15 @@ export function UsageLimitsSection({
   hiddenProviders,
   now,
   manualRefreshPending = false,
+  initialExpandedAccountKey,
+  onRetry,
 }: {
   readonly selectedEnvironmentIds: ReadonlySet<EnvironmentId> | null;
   readonly hiddenProviders: ReadonlySet<UsageProviderKind>;
   readonly now: number;
   readonly manualRefreshPending?: boolean;
+  readonly initialExpandedAccountKey?: string | undefined;
+  readonly onRetry?: (() => void) | undefined;
 }) {
   const presentations = useAtomValue(environmentPresentations.presentationsWithProvidersAtom);
   const hiddenDrivers = new Set<ServerProvider["driver"]>(
@@ -433,6 +437,8 @@ export function UsageLimitsSection({
       presentations={selected}
       now={now}
       manualRefreshPending={manualRefreshPending}
+      initialExpandedAccountKey={initialExpandedAccountKey}
+      onRetry={onRetry}
     />
   );
 }

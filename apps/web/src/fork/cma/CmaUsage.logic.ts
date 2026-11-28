@@ -16,13 +16,6 @@ export function formatCmaBillingPeriod(value: string | undefined): string | unde
   return value ? value.charAt(0).toUpperCase() + value.slice(1).toLowerCase() : undefined;
 }
 
-export function cmaReadAt(accounts: readonly Pick<LimitAccount, "limits">[]): string | undefined {
-  return accounts
-    .map((account) => account.limits.checkedAt)
-    .filter((value): value is string => Boolean(value))
-    .sort((a, b) => Date.parse(b) - Date.parse(a))[0];
-}
-
 export function cmaSourceReadAt(
   accounts: readonly Pick<LimitAccount, "sourceCheckedAt">[],
 ): string | undefined {

@@ -167,6 +167,7 @@ import {
   shouldUseCompactComposerPrimaryActions,
   shouldUseCompactComposerFooter,
 } from "../composerFooterLayout";
+import { ComposerFiveHourQuotaPill } from "../../fork/usage/ComposerFiveHourQuotaPill";
 import {
   type ComposerCitationCommentRequest,
   type ComposerPromptEditorHandle,
@@ -4093,6 +4094,12 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                       dictationTakesFooter && "hidden",
                     )}
                   >
+                    {isMobileViewport ? null : (
+                      <ComposerFiveHourQuotaPill
+                        driver={selectedProvider}
+                        environmentId={environmentId}
+                      />
+                    )}
                     {composerControls}
                   </div>
                   <ComposerFooterPrimaryActions

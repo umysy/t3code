@@ -2,6 +2,7 @@ import { ChatGptUsageButton } from "../settings/ChatGptUsageButton";
 import { usesChatGptSharing } from "@t3tools/shared/usageLimits";
 import { RefreshIcon } from "~/components/ui/refresh-icon";
 import { useAtomValue } from "@effect/atom-react";
+import { useSearch } from "@tanstack/react-router";
 import type { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { Atom } from "effect/reactivity";
 import {
@@ -176,7 +177,11 @@ function UsageModelDialogHost({
 }
 
 export function UsagePage() {
-  const [preferences, setPreferences] = useState(readUsagePagePreferences);
+  const deepLinkedAccount = useSearch({ from: "/_chat/usage", select: (search) => search.account });
+  const [preferences, setPreferences] = useState(() => {
+    const stored = readUsagePagePreferences();
+    return deepLinkedAccount ? { ...stored, metric: "limits" as const } : stored;
+  });
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
   const hour12 = usePrimarySettings((settings) => resolveHour12(settings.timestampFormat));
   const gt = useGT();
@@ -545,6 +550,8 @@ export function UsagePage() {
                 hiddenProviders={hiddenProviders}
                 now={limitsNow}
                 manualRefreshPending={isRefreshing}
+                initialExpandedAccountKey={deepLinkedAccount}
+                onRetry={refreshWindow}
               />
             ) : shown === null ? (
               <UsageSkeleton />

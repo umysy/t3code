@@ -71,6 +71,8 @@ describe("UsageLimitsPooled next refill", () => {
     function account(instanceId: string, usedPercent: number, resetsAt: string): ServerProvider {
       return {
         ...managedChatGpt(instanceId, instanceId),
+        // Codex accounts render in the fork's account matrix; Cursor keeps the pooled bar.
+        driver: ProviderDriverKind.make("cursor"),
         usageLimits: {
           checkedAt,
           windows: [{ id: "weekly", label: "Weekly", kind: "weekly", usedPercent, resetsAt }],

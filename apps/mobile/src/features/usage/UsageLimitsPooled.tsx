@@ -35,8 +35,11 @@ import { SettingsScreen } from "../settings/components/SettingsScreen";
 import { environmentPresentations } from "../../state/presentation";
 import { refillLabel, ResetCredits, resetLabels } from "./UsageLimitsSection";
 import { usageProviderKind, useProviderColors } from "./usageProviders";
-import { CmaUsageAccountsSection } from "../../fork/cma/CmaUsageAccounts";
-import { selectCmaUsageAccounts } from "@t3tools/shared/forkCmaUsage";
+import { UsageAccountMatrixSection } from "../../fork/usage/UsageAccountMatrixSection";
+import {
+  groupAccountsByProvider,
+  usesAccountMatrix,
+} from "@t3tools/shared/fork/usageAccountMatrix";
 
 const PACE_LABEL = {
   ahead: msg("Ahead of pace"),
@@ -474,12 +477,14 @@ export function UsageLimitsSection({
   selectedEnvironmentIds,
   wide = false,
   manualRefreshPending = false,
+  onRetry,
 }: {
   readonly now: number;
   readonly failedLabels: readonly string[];
   readonly selectedEnvironmentIds: ReadonlySet<EnvironmentId> | null;
   readonly wide?: boolean;
   readonly manualRefreshPending?: boolean;
+  readonly onRetry?: (() => void) | undefined;
 }) {
   const presentations = useAtomValue(environmentPresentations.presentationsWithProvidersAtom);
   const selected =
@@ -487,8 +492,11 @@ export function UsageLimitsSection({
       ? presentations
       : new Map([...presentations].filter(([id]) => selectedEnvironmentIds.has(id)));
   const accounts = collectLimitAccounts(selected);
-  const pools = collectLimitPools(accounts, now);
-  const cmaAccounts = selectCmaUsageAccounts(accounts);
+  const matrixAccounts = accounts.filter((account) => usesAccountMatrix(account.driver));
+  const pools = collectLimitPools(
+    accounts.filter((account) => !usesAccountMatrix(account.driver)),
+    now,
+  );
   const quotaSources = collectHttpQuotaSources(selected);
   const m = useMessages();
   const notices = collectLimitNotices(selected, m);
@@ -498,7 +506,7 @@ export function UsageLimitsSection({
   return (
     <View className="gap-6">
       {pools.length === 0 &&
-      cmaAccounts.length === 0 &&
+      groupAccountsByProvider(matrixAccounts, now).length === 0 &&
       notices.length === 0 &&
       failedLabels.length === 0 &&
       externalLinks.length === 0 &&
@@ -566,7 +574,12 @@ export function UsageLimitsSection({
           </Fragment>
         );
       })}
-      <CmaUsageAccountsSection accounts={cmaAccounts} manualRefreshPending={manualRefreshPending} />
+      <UsageAccountMatrixSection
+        accounts={matrixAccounts}
+        now={now}
+        onRetry={onRetry}
+        refreshing={manualRefreshPending}
+      />
       {externalLinks.map((link) => (
         <View key={link.url} className="gap-3 rounded-xl border border-border-subtle p-4">
           <Text className="text-base font-t3-medium text-foreground">{link.label}</Text>

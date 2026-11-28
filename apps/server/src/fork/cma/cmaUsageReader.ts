@@ -35,6 +35,7 @@ export interface CmaUsageAccount {
   readonly plan?: string;
   readonly enabled: boolean;
   readonly current?: boolean;
+  readonly error?: string;
   readonly subscription?: CmaUsageSubscription;
   readonly quota: {
     readonly checkedAt: string;
@@ -261,12 +262,14 @@ const normalizeAccounts = (
 
     const email = optionalString(record, "email") ?? labelEmail(record);
     const current = optionalBoolean(record, "current");
+    const error = optionalString(subscription ?? {}, "error") ?? optionalString(record, "error");
     return {
       id: accountIdentity(record, index),
       ...(email ? { email } : {}),
       ...(plan ? { plan } : {}),
       enabled: optionalBoolean(record, "enabled") ?? true,
       ...(current !== undefined ? { current } : {}),
+      ...(error ? { error } : {}),
       ...(subscriptionData ? { subscription: subscriptionData } : {}),
       quota: {
         checkedAt,

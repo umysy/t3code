@@ -175,6 +175,8 @@ export interface Preferences {
   readonly workingShelfEnabled?: boolean;
   /** The kind of question the Workflows tab's Needs you list was last narrowed to. */
   readonly workflowQuestionKind?: string;
+  /** Fork: Usage → Limits account sort per provider driver. */
+  readonly forkUsageAccountSort?: Readonly<Record<string, string>>;
   readonly useLastProjectForNewThreads?: boolean;
   readonly lastThreadProject?: typeof ThreadProject.Type;
   readonly modelFavorites?: ReadonlyArray<{
@@ -268,6 +270,7 @@ function sanitizePreferences(parsed: Preferences): Preferences {
     toolCallVisibility?: ToolCallVisibility;
     workingShelfEnabled?: boolean;
     workflowQuestionKind?: string;
+    forkUsageAccountSort?: Readonly<Record<string, string>>;
     useLastProjectForNewThreads?: boolean;
     lastThreadProject?: typeof ThreadProject.Type;
     modelFavorites?: Preferences["modelFavorites"];
@@ -418,6 +421,13 @@ function sanitizePreferences(parsed: Preferences): Preferences {
   }
   if (typeof parsed.workflowQuestionKind === "string") {
     preferences.workflowQuestionKind = parsed.workflowQuestionKind;
+  }
+  if (typeof parsed.forkUsageAccountSort === "object" && parsed.forkUsageAccountSort !== null) {
+    preferences.forkUsageAccountSort = Object.fromEntries(
+      Object.entries(parsed.forkUsageAccountSort).filter(
+        (entry): entry is [string, string] => typeof entry[1] === "string",
+      ),
+    );
   }
   if (typeof parsed.useLastProjectForNewThreads === "boolean") {
     preferences.useLastProjectForNewThreads = parsed.useLastProjectForNewThreads;

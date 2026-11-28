@@ -4,7 +4,7 @@ How to maintain `umysy/t3code` and update it to each new [official release](GLOS
 
 ## 1. What the fork carries
 
-- **CMA usage**: reads and displays CMA account usage and subscription info on the Usage page (server, web, mobile).
+- **CMA & unified account limits**: reads CMA accounts (including per-account errors) and displays Codex/Claude limits as a single-account audit card or sortable multi-account matrix (Web + Mobile), plus a 5h quota pill beside the Web/Desktop chat composer model picker.
 - **Environment role safety**: development and test servers refuse to start against `~/.t3/userdata`.
 - **Windows `pgrep` skip**: skips the POSIX `pgrep` busy check in Codex on `win32`.
 - **Windows payload limit**: raises `WINDOWS_PACKAGED_PAYLOAD_FILE_LIMIT` from `80` to `120`.
@@ -23,6 +23,7 @@ How to maintain `umysy/t3code` and update it to each new [official release](GLOS
 - [apps/mobile/assets/fork/](../../apps/mobile/assets/fork/)
 - [scripts/fork-icons.ts](../../scripts/fork-icons.ts)
 - [packages/shared/src/forkCmaUsage.ts](../../packages/shared/src/forkCmaUsage.ts)
+- [packages/shared/src/fork/usageAccountMatrix.ts](../../packages/shared/src/fork/usageAccountMatrix.ts)
 - [packages/shared/src/fork/telemetryDefault.ts](../../packages/shared/src/fork/telemetryDefault.ts)
 - [.github/workflows/fork-\*.yml](../../.github/workflows/)
 - [docs/fork/](.)

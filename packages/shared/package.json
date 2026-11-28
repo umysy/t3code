@@ -451,6 +451,10 @@
       "types": "./src/fork/telemetryDefault.ts",
       "import": "./src/fork/telemetryDefault.ts"
     },
+    "./fork/usageAccountMatrix": {
+      "types": "./src/fork/usageAccountMatrix.ts",
+      "import": "./src/fork/usageAccountMatrix.ts"
+    },
     "./desktopAppControl": {
       "types": "./src/desktopAppControl.ts",
       "import": "./src/desktopAppControl.ts"

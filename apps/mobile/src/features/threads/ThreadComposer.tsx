@@ -82,6 +82,7 @@ import {
 } from "../../components/ComposerToolbar";
 import { formatTokens } from "@t3tools/shared/usageFormat";
 import { ComposerModelControl } from "../../components/ComposerModelControl";
+import { ComposerFiveHourQuotaStrip } from "../../fork/usage/ComposerFiveHourQuotaStrip";
 import {
   composerStripAttachments,
   type DraftComposerFileAttachment,
@@ -794,6 +795,13 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
             label={gt("Model unavailable. Open model settings.")}
             tone="text"
             onPress={openSettings}
+          />
+        ) : null}
+
+        {selectedProviderStatus ? (
+          <ComposerFiveHourQuotaStrip
+            driver={selectedProviderStatus.driver}
+            environmentId={props.environmentId}
           />
         ) : null}
 

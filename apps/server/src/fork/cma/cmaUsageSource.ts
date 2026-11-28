@@ -36,6 +36,14 @@ const cmaAccount = (account: CmaUsageReader.CmaUsageAccount): UsageLimitSourceAc
       ...(window.resetsAt ? { resetsAt: window.resetsAt } : {}),
       ...(window.windowMinutes === undefined ? {} : { windowDurationMins: window.windowMinutes }),
     })),
+    ...(account.error
+      ? {
+          unavailable: {
+            reason: "probeFailed" as const,
+            message: account.error,
+          },
+        }
+      : {}),
   },
 });
 

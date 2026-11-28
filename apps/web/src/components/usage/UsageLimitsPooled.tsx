@@ -39,7 +39,7 @@ import { OpenAI } from "../Icons";
 import { Alert, AlertTitle } from "../ui/alert";
 import { Popover, PopoverCreateHandle, PopoverPopup, PopoverTrigger } from "../ui/popover";
 import { PaceIcon, ResetCreditDialog, barColor, usePaceMark, useResetCredit } from "./UsageLimits";
-import { CmaAccountsSection } from "../../fork/cma/CmaUsageSection";
+import { UsageAccountMatrixSection } from "../../fork/usage/UsageAccountMatrixSection";
 import {
   collectExternalUsageLinks,
   collectLimitNotices,
@@ -48,7 +48,10 @@ import {
   formatResetsIn,
   resetCreditChoices,
 } from "@t3tools/shared/usageLimitsCopy";
-import { selectCmaUsageAccounts } from "@t3tools/shared/forkCmaUsage";
+import {
+  groupAccountsByProvider,
+  usesAccountMatrix,
+} from "@t3tools/shared/fork/usageAccountMatrix";
 
 function accountInitials(email: string): string {
   const [local = "", domain = ""] = email.split("@");
@@ -685,23 +688,31 @@ export function UsageLimitsPooled({
   presentations,
   now,
   manualRefreshPending = false,
+  initialExpandedAccountKey,
+  onRetry,
 }: {
   readonly presentations: Parameters<typeof collectLimitAccounts>[0];
   readonly now: number;
   readonly manualRefreshPending?: boolean;
+  readonly initialExpandedAccountKey?: string | undefined;
+  readonly onRetry?: (() => void) | undefined;
 }) {
   const gt = useGT();
   const m = useMessages();
   const [segmentPopover] = useState(() => PopoverCreateHandle<SegmentPayload>());
   const segmentPopoverActions = useRef<PopoverPrimitive.Root.Actions | null>(null);
   const accounts = collectLimitAccounts(presentations);
-  const pools = collectLimitPools(accounts, now);
+  const matrixAccounts = accounts.filter((account) => usesAccountMatrix(account.driver));
+  const pools = collectLimitPools(
+    accounts.filter((account) => !usesAccountMatrix(account.driver)),
+    now,
+  );
   const quotaSources = collectHttpQuotaSources(presentations);
   const notices = collectLimitNotices(presentations, m);
   const externalLinks = collectExternalUsageLinks(presentations, m);
   return (
     <div className="flex flex-col gap-8">
-      {selectCmaUsageAccounts(accounts).length === 0 &&
+      {groupAccountsByProvider(matrixAccounts, now).length === 0 &&
       pools.length === 0 &&
       notices.length === 0 &&
       externalLinks.length === 0 &&
@@ -717,10 +728,12 @@ export function UsageLimitsPooled({
           </Fragment>
         ))}
       </SegmentPopoverContext>
-      <CmaAccountsSection
-        accounts={accounts}
+      <UsageAccountMatrixSection
+        accounts={matrixAccounts}
         now={now}
-        manualRefreshPending={manualRefreshPending}
+        initialExpandedAccountKey={initialExpandedAccountKey}
+        onRetry={onRetry}
+        refreshing={manualRefreshPending}
       />
       <Popover handle={segmentPopover} actionsRef={segmentPopoverActions}>
         {({ payload }) =>
